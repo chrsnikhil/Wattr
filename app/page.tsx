@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
+import ConnectWalletButton from "@/components/connect-wallet-button"
 import {
   Zap,
   Sun,
@@ -32,17 +33,7 @@ export default function EnergyTradingLanding() {
             </div>
             <h1 className="text-2xl font-black font-mono text-black tracking-wider">ENERGYFI</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              className="bg-white border-4 border-black text-black hover:bg-gray-100 font-black font-mono px-6 py-2 shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568] transition-all"
-            >
-              LOGIN
-            </Button>
-            <Button className="bg-black hover:bg-[#2d3748] text-white font-black font-mono px-6 py-2 border-4 border-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568] transition-all">
-              GET STARTED
-            </Button>
-          </div>
+          <ConnectWalletButton />
         </div>
       </nav>
 
