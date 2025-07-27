@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useSmartMeter } from '@/hooks/use-smart-meter';
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
   Wallet,
   MapPin,
   Clock,
+  RefreshCw,
 } from 'lucide-react';
 
 interface EnergyReading {
@@ -63,6 +65,21 @@ interface MeteringStats {
 export default function EnergyMeteringDashboard() {
   const { authenticated, user } = usePrivy();
 
+  // Smart meter hook for real-time data
+  const {
+    data: smartMeterData,
+    loading: smartMeterLoading,
+    error: smartMeterError,
+    refresh: refreshSmartMeter,
+    getTotalEnergy,
+    getEnergyBySource,
+    getVerifiedReadings,
+    lastUpdate,
+  } = useSmartMeter({
+    autoRefresh: true,
+    refreshInterval: 30000, // 30 seconds
+  });
+
   const [readings, setReadings] = useState<EnergyReading[]>([]);
   const [stats, setStats] = useState<MeteringStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,6 +105,58 @@ export default function EnergyMeteringDashboard() {
     maxProduction: 100,
     maxConsumption: 50,
   });
+
+  // Convert smart meter data to our local format
+  useEffect(() => {
+    if (smartMeterData?.data) {
+      const convertedReadings: EnergyReading[] = smartMeterData.data.map(
+        (reading, index) => ({
+          meterId: `METER-${reading.userId}`,
+          accountId: walletAddress || reading.userId,
+          meterType: 'production' as const,
+          energyAmount: reading.energyAmount,
+          energySource: reading.source,
+          timestamp: reading.timestamp,
+          verified: reading.verified,
+          verificationSource: reading.dataSource || 'NREL Solar Resource API',
+          location: reading.location,
+          meterSerialNumber: `SM-${reading.userId}-${index}`,
+        }),
+      );
+
+      setReadings(convertedReadings);
+
+      // Calculate stats from smart meter data
+      const totalProduction = getTotalEnergy();
+
+      const calculatedStats: MeteringStats = {
+        totalProduction,
+        totalConsumption: totalProduction * 0.3, // Mock consumption as 30% of production
+        totalTokensMinted: Math.floor(totalProduction),
+        totalTokensBurned: Math.floor(totalProduction * 0.3),
+        netTokens: Math.floor(totalProduction * 0.7),
+        totalMeters: smartMeterData.data.length,
+        totalReadings: smartMeterData.totalReadings,
+      };
+
+      setStats(calculatedStats);
+    }
+  }, [
+    smartMeterData,
+    walletAddress,
+    getTotalEnergy,
+    getEnergyBySource,
+    getVerifiedReadings,
+  ]);
+
+  // Set smart meter errors
+  useEffect(() => {
+    if (smartMeterError) {
+      setError(`Smart Meter API Error: ${smartMeterError}`);
+    } else {
+      setError(null);
+    }
+  }, [smartMeterError]);
 
   useEffect(() => {
     if (authenticated && walletAddress) {
@@ -115,6 +184,20 @@ export default function EnergyMeteringDashboard() {
       }
     } catch (err) {
       setError(`Failed to load metering data: ${err}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manual refresh function for smart meter data
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      await refreshSmartMeter();
+      setSuccess('Energy data refreshed successfully from NREL API!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(`Failed to refresh data: ${err}`);
     } finally {
       setLoading(false);
     }
@@ -386,19 +469,19 @@ export default function EnergyMeteringDashboard() {
                 value="readings"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
-                RECENT READINGS
+                LIVE READINGS
               </TabsTrigger>
               <TabsTrigger
-                value="process"
+                value="refresh"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
-                PROCESS READING
+                REFRESH DATA
               </TabsTrigger>
               <TabsTrigger
-                value="simulate"
+                value="trading"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
-                SIMULATE DATA
+                ENERGY TRADING
               </TabsTrigger>
               <TabsTrigger
                 value="analytics"
