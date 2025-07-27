@@ -44,6 +44,30 @@ export default function EnergyTradingLanding() {
               <Gauge className="w-4 h-4 mr-2" />
               Smart Meter
             </Button>
+            <Button
+              variant="outline"
+              className="border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] hover:shadow-[1px_1px_0px_0px_#4a5568] transition-all"
+              onClick={() => (window.location.href = '/energy-metering')}
+            >
+              <Battery className="w-4 h-4 mr-2" />
+              Energy Metering
+            </Button>
+            <Button
+              variant="outline"
+              className="border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] hover:shadow-[1px_1px_0px_0px_#4a5568] transition-all"
+              onClick={() => (window.location.href = '/energy-trading')}
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              P2P Trading
+            </Button>
+            <Button
+              variant="outline"
+              className="border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] hover:shadow-[1px_1px_0px_0px_#4a5568] transition-all"
+              onClick={() => (window.location.href = '/tokens')}
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Energy Tokens
+            </Button>
             <ConnectWalletButton />
           </div>
         </div>
