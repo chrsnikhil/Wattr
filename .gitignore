@@ -9,6 +9,8 @@
 
 # production
 /build
+.github
+.vscode
 
 # debug
 npm-debug.log*

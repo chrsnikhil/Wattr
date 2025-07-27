@@ -1,11 +1,11 @@
-"use client"
+'use client';
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { motion } from "framer-motion"
-import ConnectWalletButton from "@/components/connect-wallet-button"
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
+import ConnectWalletButton from '@/components/connect-wallet-button';
 import {
   Zap,
   Sun,
@@ -19,7 +19,7 @@ import {
   Network,
   Gauge,
   CheckCircle,
-} from "lucide-react"
+} from 'lucide-react';
 
 export default function EnergyTradingLanding() {
   return (
@@ -31,7 +31,9 @@ export default function EnergyTradingLanding() {
             <div className="w-12 h-12 bg-[#10b981] border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-2xl font-black font-mono text-black tracking-wider">ENERGYFI</h1>
+            <h1 className="text-2xl font-black font-mono text-black tracking-wider">
+              ENERGYFI
+            </h1>
           </div>
           <ConnectWalletButton />
         </div>
@@ -65,8 +67,9 @@ export default function EnergyTradingLanding() {
             </h1>
 
             <p className="text-2xl text-black font-medium max-w-4xl mx-auto mb-8">
-              Transform your rooftop solar panels into a revenue stream. Trade excess energy with neighbors on the
-              world's most energy-efficient blockchain.
+              Transform your rooftop solar panels into a revenue stream. Trade
+              excess energy with neighbors on the world's most energy-efficient
+              blockchain.
             </p>
 
             <div className="flex justify-center items-center space-x-4 mb-8">
@@ -102,15 +105,30 @@ export default function EnergyTradingLanding() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { number: "10,000+", label: "SOLAR PANELS CONNECTED", icon: Sun, color: "bg-[#10b981]" },
-              { number: "2.5 MWh", label: "ENERGY TRADED DAILY", icon: Battery, color: "bg-black" },
-              { number: "99.9%", label: "ENERGY EFFICIENCY", icon: Leaf, color: "bg-[#10b981]" },
               {
-                number: "$50K+",
-                label: "EARNED BY USERS",
+                number: '10,000+',
+                label: 'SOLAR PANELS CONNECTED',
+                icon: Sun,
+                color: 'bg-[#10b981]',
+              },
+              {
+                number: '2.5 MWh',
+                label: 'ENERGY TRADED DAILY',
+                icon: Battery,
+                color: 'bg-black',
+              },
+              {
+                number: '99.9%',
+                label: 'ENERGY EFFICIENCY',
+                icon: Leaf,
+                color: 'bg-[#10b981]',
+              },
+              {
+                number: '$50K+',
+                label: 'EARNED BY USERS',
                 icon: DollarSign,
-                color: "bg-white",
-                textColor: "text-black",
+                color: 'bg-white',
+                textColor: 'text-black',
               },
             ].map((stat, index) => (
               <motion.div
@@ -124,10 +142,16 @@ export default function EnergyTradingLanding() {
                     <div
                       className={`w-16 h-16 ${stat.color} border-4 border-black mx-auto flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]`}
                     >
-                      <stat.icon className={`w-8 h-8 ${stat.color === "bg-white" ? "text-black" : "text-white"}`} />
+                      <stat.icon
+                        className={`w-8 h-8 ${stat.color === 'bg-white' ? 'text-black' : 'text-white'}`}
+                      />
                     </div>
-                    <h3 className="text-3xl font-black text-black font-mono">{stat.number}</h3>
-                    <p className="text-sm font-bold font-mono text-black">{stat.label}</p>
+                    <h3 className="text-3xl font-black text-black font-mono">
+                      {stat.number}
+                    </h3>
+                    <p className="text-sm font-bold font-mono text-black">
+                      {stat.label}
+                    </p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -140,52 +164,59 @@ export default function EnergyTradingLanding() {
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-5xl font-black text-black font-mono tracking-wider mb-4">REVOLUTIONARY FEATURES</h2>
+            <h2 className="text-5xl font-black text-black font-mono tracking-wider mb-4">
+              REVOLUTIONARY FEATURES
+            </h2>
             <p className="text-xl text-black font-medium">
-              Built on Hedera for maximum efficiency and minimal environmental impact
+              Built on Hedera for maximum efficiency and minimal environmental
+              impact
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                title: "REAL-TIME MONITORING",
+                title: 'REAL-TIME MONITORING',
                 description:
-                  "Track your solar panel production and energy consumption in real-time with advanced analytics.",
+                  'Track your solar panel production and energy consumption in real-time with advanced analytics.',
                 icon: Gauge,
-                color: "bg-[#10b981]",
+                color: 'bg-[#10b981]',
               },
               {
-                title: "AUTOMATED TRADING",
-                description: "Smart contracts automatically sell your excess energy at optimal prices while you sleep.",
-                icon: Network,
-                color: "bg-black",
-              },
-              {
-                title: "CARBON CREDITS",
+                title: 'AUTOMATED TRADING',
                 description:
-                  "Earn additional revenue through verified carbon credits for your clean energy contribution.",
+                  'Smart contracts automatically sell your excess energy at optimal prices while you sleep.',
+                icon: Network,
+                color: 'bg-black',
+              },
+              {
+                title: 'CARBON CREDITS',
+                description:
+                  'Earn additional revenue through verified carbon credits for your clean energy contribution.',
                 icon: Leaf,
-                color: "bg-[#10b981]",
+                color: 'bg-[#10b981]',
               },
               {
-                title: "NEIGHBORHOOD GRID",
-                description: "Connect with local energy consumers and create a sustainable micro-grid community.",
+                title: 'NEIGHBORHOOD GRID',
+                description:
+                  'Connect with local energy consumers and create a sustainable micro-grid community.',
                 icon: Home,
-                color: "bg-white",
-                textColor: "text-black",
+                color: 'bg-white',
+                textColor: 'text-black',
               },
               {
-                title: "INSTANT PAYMENTS",
-                description: "Receive payments instantly through Hedera's lightning-fast and low-cost transactions.",
+                title: 'INSTANT PAYMENTS',
+                description:
+                  "Receive payments instantly through Hedera's lightning-fast and low-cost transactions.",
                 icon: Zap,
-                color: "bg-black",
+                color: 'bg-black',
               },
               {
-                title: "ENERGY FORECASTING",
-                description: "AI-powered predictions help optimize your energy production and trading strategies.",
+                title: 'ENERGY FORECASTING',
+                description:
+                  'AI-powered predictions help optimize your energy production and trading strategies.',
                 icon: TrendingUp,
-                color: "bg-[#10b981]",
+                color: 'bg-[#10b981]',
               },
             ].map((feature, index) => (
               <motion.div
@@ -200,11 +231,15 @@ export default function EnergyTradingLanding() {
                       className={`w-20 h-20 ${feature.color} border-4 border-black flex items-center justify-center shadow-[6px_6px_0px_0px_#4a5568]`}
                     >
                       <feature.icon
-                        className={`w-10 h-10 ${feature.color === "bg-white" ? "text-black" : "text-white"}`}
+                        className={`w-10 h-10 ${feature.color === 'bg-white' ? 'text-black' : 'text-white'}`}
                       />
                     </div>
-                    <h3 className="text-xl font-black text-black font-mono">{feature.title}</h3>
-                    <p className="text-black font-medium leading-relaxed">{feature.description}</p>
+                    <h3 className="text-xl font-black text-black font-mono">
+                      {feature.title}
+                    </h3>
+                    <p className="text-black font-medium leading-relaxed">
+                      {feature.description}
+                    </p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -220,21 +255,26 @@ export default function EnergyTradingLanding() {
             <CardContent className="p-12">
               <div className="grid md:grid-cols-2 gap-12 items-center">
                 <div className="space-y-8">
-                  <h2 className="text-4xl font-black text-white font-mono tracking-wider">POWERED BY HEDERA</h2>
+                  <h2 className="text-4xl font-black text-white font-mono tracking-wider">
+                    POWERED BY HEDERA
+                  </h2>
                   <p className="text-xl text-gray-300 font-medium leading-relaxed">
-                    We chose Hedera because it's the world's most energy-efficient blockchain, using 99.99% less energy
-                    than Bitcoin while providing enterprise-grade security.
+                    We chose Hedera because it's the world's most
+                    energy-efficient blockchain, using 99.99% less energy than
+                    Bitcoin while providing enterprise-grade security.
                   </p>
                   <div className="space-y-4">
                     {[
-                      "0.001 kWh per transaction vs 700 kWh for Bitcoin",
-                      "Carbon negative network operations",
-                      "Sub-second transaction finality",
-                      "Fixed low fees under $0.01",
+                      '0.001 kWh per transaction vs 700 kWh for Bitcoin',
+                      'Carbon negative network operations',
+                      'Sub-second transaction finality',
+                      'Fixed low fees under $0.01',
                     ].map((benefit, index) => (
                       <div key={index} className="flex items-center space-x-3">
                         <CheckCircle className="w-6 h-6 text-[#10b981]" />
-                        <span className="text-white font-medium">{benefit}</span>
+                        <span className="text-white font-medium">
+                          {benefit}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -243,7 +283,9 @@ export default function EnergyTradingLanding() {
                   <div className="w-48 h-48 bg-[#10b981] border-8 border-black mx-auto flex items-center justify-center shadow-[12px_12px_0px_0px_#4a5568] mb-6">
                     <Leaf className="w-24 h-24 text-white" />
                   </div>
-                  <p className="text-sm font-mono font-bold text-[#10b981]">CARBON NEGATIVE BLOCKCHAIN</p>
+                  <p className="text-sm font-mono font-bold text-[#10b981]">
+                    CARBON NEGATIVE BLOCKCHAIN
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -260,7 +302,8 @@ export default function EnergyTradingLanding() {
                 START EARNING FROM YOUR SOLAR PANELS TODAY
               </h2>
               <p className="text-xl text-black font-medium">
-                Join thousands of homeowners already earning passive income from their excess solar energy.
+                Join thousands of homeowners already earning passive income from
+                their excess solar energy.
               </p>
 
               <div className="flex justify-center space-x-4 max-w-md mx-auto">
@@ -296,14 +339,18 @@ export default function EnergyTradingLanding() {
             <div className="w-12 h-12 bg-[#10b981] border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-2xl font-black font-mono text-black tracking-wider">ENERGYFI</h3>
+            <h3 className="text-2xl font-black font-mono text-black tracking-wider">
+              ENERGYFI
+            </h3>
           </div>
-          <p className="text-black font-medium mb-4">Democratizing energy trading through blockchain technology</p>
+          <p className="text-black font-medium mb-4">
+            Democratizing energy trading through blockchain technology
+          </p>
           <p className="text-sm font-mono font-bold text-[#10b981]">
             POWERED BY HEDERA • CARBON NEGATIVE • ENERGY EFFICIENT
           </p>
         </div>
       </footer>
     </div>
-  )
+  );
 }

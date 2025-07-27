@@ -25,20 +25,22 @@ export default function ConnectWalletButton() {
     setIsConnecting(true);
     setConnectionError(null);
     setConnectionAttempts(prev => prev + 1);
-    
+
     try {
       // Check if MetaMask is available
       if (typeof window !== 'undefined' && !window.ethereum) {
-        throw new Error('MetaMask not found. Please install MetaMask extension.');
+        throw new Error(
+          'MetaMask not found. Please install MetaMask extension.',
+        );
       }
 
       await login();
-      
+
       // If we reach here, connection was successful
       setIsConnecting(false);
     } catch (error: any) {
       console.error('Wallet connection error:', error);
-      
+
       // Set user-friendly error message
       if (error.message?.includes('MetaMask not found')) {
         setConnectionError('Please install MetaMask extension');
@@ -49,7 +51,7 @@ export default function ConnectWalletButton() {
       } else {
         setConnectionError('Connection failed. Please try again.');
       }
-      
+
       // Don't reset connecting state immediately - let user see the error
       setTimeout(() => {
         setIsConnecting(false);
@@ -79,9 +81,12 @@ export default function ConnectWalletButton() {
 
   // If user is authenticated, show user info and logout button
   if (authenticated && user) {
-    const userDisplay = user.email?.address || 
-                       (user.wallet?.address ? `${user.wallet.address.slice(0, 6)}...` : 'Connected');
-    
+    const userDisplay =
+      user.email?.address ||
+      (user.wallet?.address
+        ? `${user.wallet.address.slice(0, 6)}...`
+        : 'Connected');
+
     return (
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2 bg-white border-4 border-black px-4 py-2 shadow-[4px_4px_0px_0px_#4a5568]">
@@ -144,4 +149,4 @@ export default function ConnectWalletButton() {
       CONNECT WALLET
     </Button>
   );
-} 
+}

@@ -7,11 +7,15 @@ interface PrivyProviderWrapperProps {
   children: ReactNode;
 }
 
-export default function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
+export default function PrivyProviderWrapper({
+  children,
+}: PrivyProviderWrapperProps) {
   const privyAppId = process.env.NEXT_PUBLIC_PRIVY_ID;
-  
+
   if (!privyAppId) {
-    console.warn('Privy App ID not found. Wallet functionality will be disabled.');
+    console.warn(
+      'Privy App ID not found. Wallet functionality will be disabled.',
+    );
     return <>{children}</>;
   }
 
@@ -28,12 +32,12 @@ export default function PrivyProviderWrapper({ children }: PrivyProviderWrapperP
         },
         embeddedWallets: {
           ethereum: {
-            createOnLogin: 'users-without-wallets'
-          }
-        }
+            createOnLogin: 'users-without-wallets',
+          },
+        },
       }}
     >
       {children}
     </PrivyProvider>
   );
-} 
+}
