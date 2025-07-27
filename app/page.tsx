@@ -35,7 +35,17 @@ export default function EnergyTradingLanding() {
               ENERGYFI
             </h1>
           </div>
-          <ConnectWalletButton />
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              className="border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] hover:shadow-[1px_1px_0px_0px_#4a5568] transition-all"
+              onClick={() => (window.location.href = '/smart-meter')}
+            >
+              <Gauge className="w-4 h-4 mr-2" />
+              Smart Meter
+            </Button>
+            <ConnectWalletButton />
+          </div>
         </div>
       </nav>
 
