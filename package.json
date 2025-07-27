@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
+    "@hashgraph/sdk": "^2.69.0",
     "@hookform/resolvers": "^3.9.1",
     "@privy-io/react-auth": "^2.20.0",
     "@radix-ui/react-accordion": "1.2.2",
