@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-// Type definitions for smart meter data
+// Enhanced type definitions for NREL energy data
 export interface SmartMeterReading {
   userId: string;
   energyAmount: number;
@@ -9,6 +9,17 @@ export interface SmartMeterReading {
   verified: boolean;
   unit: string;
   location: string;
+  // New NREL-specific fields
+  nrelData?: {
+    solarIrradiance?: number;
+    windSpeed?: number;
+    latitude: number;
+    longitude: number;
+    elevation: number;
+    timezone: string;
+  };
+  dataSource: string;
+  guardianValidation: 'pending' | 'verified' | 'failed' | 'unverified';
 }
 
 export interface SmartMeterResponse {
@@ -21,6 +32,9 @@ export interface SmartMeterResponse {
     supportedSources: string[];
     dataFormat: string;
     guardianStatus: string;
+    dataSource: string;
+    apiKeyStatus: string;
+    locations: Array<{ id: string; name: string }>;
   };
 }
 
@@ -35,7 +49,7 @@ export function useSmartMeter(options: UseSmartMeterOptions = {}) {
   const {
     userId,
     source,
-    refreshInterval = 5000,
+    refreshInterval = 30000, // 30 seconds for real NREL data
     autoRefresh = true,
   } = options;
 
@@ -70,7 +84,7 @@ export function useSmartMeter(options: UseSmartMeterOptions = {}) {
       const errorMessage =
         err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Failed to fetch smart meter data:', err);
+      console.error('Failed to fetch NREL energy data:', err);
     } finally {
       setLoading(false);
     }
@@ -129,6 +143,42 @@ export function useSmartMeter(options: UseSmartMeterOptions = {}) {
     return data.data.filter(reading => !reading.verified);
   }, [data]);
 
+  // New helper functions for NREL data
+  const getGuardianPendingReadings = useCallback(() => {
+    if (!data?.data) return [];
+    return data.data.filter(reading => reading.guardianValidation === 'pending');
+  }, [data]);
+
+  const getGuardianVerifiedReadings = useCallback(() => {
+    if (!data?.data) return [];
+    return data.data.filter(reading => reading.guardianValidation === 'verified');
+  }, [data]);
+
+  const getNRELDataByLocation = useCallback((locationId: string) => {
+    if (!data?.data) return [];
+    return data.data.filter(reading => 
+      reading.location.toLowerCase().includes(locationId.toLowerCase())
+    );
+  }, [data]);
+
+  const getTotalSolarIrradiance = useCallback(() => {
+    if (!data?.data) return 0;
+    return data.data
+      .filter(reading => reading.nrelData?.solarIrradiance)
+      .reduce((total, reading) => total + (reading.nrelData?.solarIrradiance || 0), 0);
+  }, [data]);
+
+  const getAverageWindSpeed = useCallback(() => {
+    if (!data?.data) return 0;
+    const windReadings = data.data.filter(reading => reading.nrelData?.windSpeed);
+    if (windReadings.length === 0) return 0;
+    
+    const totalWindSpeed = windReadings.reduce((total, reading) => 
+      total + (reading.nrelData?.windSpeed || 0), 0
+    );
+    return totalWindSpeed / windReadings.length;
+  }, [data]);
+
   return {
     data,
     loading,
@@ -140,9 +190,18 @@ export function useSmartMeter(options: UseSmartMeterOptions = {}) {
     getEnergyBySource,
     getVerifiedReadings,
     getUnverifiedReadings,
+    // New NREL-specific helpers
+    getGuardianPendingReadings,
+    getGuardianVerifiedReadings,
+    getNRELDataByLocation,
+    getTotalSolarIrradiance,
+    getAverageWindSpeed,
     // Computed values
     isConnected: !error && data !== null,
     readingsCount: data?.totalReadings || 0,
     guardianStatus: data?.metadata?.guardianStatus || 'Unknown',
+    dataSource: data?.metadata?.dataSource || 'Unknown',
+    apiKeyStatus: data?.metadata?.apiKeyStatus || 'Unknown',
+    supportedLocations: data?.metadata?.locations || [],
   };
 }

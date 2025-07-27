@@ -142,7 +142,7 @@ export default function EnergyTradingLanding() {
               },
             ].map((stat, index) => (
               <motion.div
-                key={index}
+                key={`stat-${stat.label}-${index}`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -230,7 +230,7 @@ export default function EnergyTradingLanding() {
               },
             ].map((feature, index) => (
               <motion.div
-                key={index}
+                key={`feature-${feature.title}-${index}`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -280,7 +280,7 @@ export default function EnergyTradingLanding() {
                       'Sub-second transaction finality',
                       'Fixed low fees under $0.01',
                     ].map((benefit, index) => (
-                      <div key={index} className="flex items-center space-x-3">
+                      <div key={`benefit-${benefit.slice(0, 10)}-${index}`} className="flex items-center space-x-3">
                         <CheckCircle className="w-6 h-6 text-[#10b981]" />
                         <span className="text-white font-medium">
                           {benefit}

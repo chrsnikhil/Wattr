@@ -1,116 +1,192 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Mock smart meter data for different users and energy sources
-const mockSmartMeterData = [
+// NREL API configuration
+const NREL_API_KEY = process.env.NREL_API_KEY || 'DEMO_KEY';
+const NREL_BASE_URL = 'https://developer.nrel.gov/api';
+
+// Real locations for energy data
+const ENERGY_LOCATIONS = [
   {
-    userId: 'user_001',
-    energyAmount: 12.5,
-    source: 'solar',
-    timestamp: new Date().toISOString(),
-    verified: true,
-    unit: 'kWh',
-    location: 'Residential Solar Panel',
+    id: 'golden_co',
+    name: 'NREL Solar Radiation Research Laboratory',
+    lat: 39.7392,
+    lng: -105.2091,
+    elevation: 1828,
+    timezone: 'America/Denver'
   },
   {
-    userId: 'user_002',
-    energyAmount: 8.3,
-    source: 'wind',
-    timestamp: new Date().toISOString(),
-    verified: true,
-    unit: 'kWh',
-    location: 'Community Wind Turbine',
+    id: 'boulder_co',
+    name: 'Boulder Atmospheric Observatory',
+    lat: 40.0150,
+    lng: -105.2705,
+    elevation: 1683,
+    timezone: 'America/Denver'
   },
   {
-    userId: 'user_003',
-    energyAmount: 15.7,
-    source: 'solar',
-    timestamp: new Date().toISOString(),
-    verified: true,
-    unit: 'kWh',
-    location: 'Commercial Solar Array',
+    id: 'san_diego_ca',
+    name: 'San Diego Solar Station',
+    lat: 32.7157,
+    lng: -117.1611,
+    elevation: 430,
+    timezone: 'America/Los_Angeles'
   },
   {
-    userId: 'user_004',
-    energyAmount: 6.2,
-    source: 'hydro',
-    timestamp: new Date().toISOString(),
-    verified: true,
-    unit: 'kWh',
-    location: 'Micro Hydro Generator',
+    id: 'austin_tx',
+    name: 'Austin Energy Solar Farm',
+    lat: 30.2672,
+    lng: -97.7431,
+    elevation: 165,
+    timezone: 'America/Chicago'
   },
   {
-    userId: 'user_005',
-    energyAmount: 22.1,
-    source: 'solar',
-    timestamp: new Date().toISOString(),
-    verified: true,
-    unit: 'kWh',
-    location: 'Industrial Solar Farm',
-  },
+    id: 'phoenix_az',
+    name: 'Phoenix Solar Research Center',
+    lat: 33.4484,
+    lng: -112.0740,
+    elevation: 331,
+    timezone: 'America/Phoenix'
+  }
 ];
 
-// Function to simulate real-time energy fluctuations
-function generateRealtimeData() {
-  return mockSmartMeterData.map(data => {
-    // Add random variation to energy amount (±20%)
-    const variation = (Math.random() - 0.5) * 0.4;
-    const newEnergyAmount = Math.max(0, data.energyAmount * (1 + variation));
+// Fetch real solar resource data from NREL
+async function fetchNRELSolarResource(location: { lat: number; lng: number; }) {
+  const url = `${NREL_BASE_URL}/solar/solar_resource/v1.json?api_key=${NREL_API_KEY}&lat=${location.lat}&lon=${location.lng}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error(`NREL Solar API error: ${response.status} - ${response.statusText}`);
+    return null;
+  }
+  const data = await response.json();
+  if (!data.outputs) {
+    console.error('No outputs in solar API response');
+    return null;
+  }
+  return data.outputs;
+}
 
-    return {
-      ...data,
-      energyAmount: Math.round(newEnergyAmount * 10) / 10, // Round to 1 decimal place
-      timestamp: new Date().toISOString(),
-      // Occasionally simulate verification delays
-      verified: Math.random() > 0.05, // 95% chance of being verified
-    };
-  });
+// Generate solar data for all locations
+async function generateSolarData() {
+  const solarData = [];
+  for (let i = 0; i < ENERGY_LOCATIONS.length; i++) {
+    const location = ENERGY_LOCATIONS[i];
+    const userId = `user_${String(i + 1).padStart(3, '0')}`;
+    try {
+      const outputs = await fetchNRELSolarResource(location);
+      if (outputs) {
+        // Calculate energyAmount from avg_ghi (annual, kWh/m^2/day)
+        // Assume 60 m^2 panel, 15% efficiency, 1 day
+        const avgGHI = outputs.avg_ghi?.annual || 0;
+        const panelArea = 60; // m^2
+        const efficiency = 0.15;
+        // Daily energy in kWh: avgGHI * area * efficiency
+        const energyAmount = Math.round(avgGHI * panelArea * efficiency * 100) / 100;
+        solarData.push({
+          userId,
+          location: location.name,
+          lat: location.lat,
+          lng: location.lng,
+          elevation: location.elevation,
+          timezone: location.timezone,
+          timestamp: new Date().toISOString(),
+          dataSource: 'NREL Solar Resource API v1',
+          avg_dni: outputs.avg_dni || null,
+          avg_ghi: outputs.avg_ghi || null,
+          avg_lat_tilt: outputs.avg_lat_tilt || null,
+          guardianValidation: 'pending',
+          energyAmount,
+          unit: 'kWh',
+          source: 'solar',
+          verified: !!outputs.avg_ghi
+        });
+      } else {
+        solarData.push({
+          userId,
+          location: location.name,
+          lat: location.lat,
+          lng: location.lng,
+          elevation: location.elevation,
+          timezone: location.timezone,
+          timestamp: new Date().toISOString(),
+          dataSource: 'NREL Solar Resource API v1',
+          avg_dni: null,
+          avg_ghi: null,
+          avg_lat_tilt: null,
+          guardianValidation: 'failed',
+          energyAmount: 0,
+          unit: 'kWh',
+          source: 'solar',
+          verified: false
+        });
+      }
+    } catch (error) {
+      console.error(`Error processing location ${location.name}:`, error);
+      solarData.push({
+        userId,
+        location: location.name,
+        lat: location.lat,
+        lng: location.lng,
+        elevation: location.elevation,
+        timezone: location.timezone,
+        timestamp: new Date().toISOString(),
+        dataSource: 'NREL Solar Resource API v1',
+        avg_dni: null,
+        avg_ghi: null,
+        avg_lat_tilt: null,
+        guardianValidation: 'failed',
+        energyAmount: 0,
+        unit: 'kWh',
+        source: 'solar',
+        verified: false
+      });
+    }
+  }
+  return solarData;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const source = searchParams.get('source');
-
-    // Generate real-time data
-    const realtimeData = generateRealtimeData();
-
-    // Filter by userId if provided
-    let filteredData = realtimeData;
+    // Only solar data is supported
+    const solarData = await generateSolarData();
+    let filteredData = solarData;
     if (userId) {
-      filteredData = realtimeData.filter(data => data.userId === userId);
+      filteredData = solarData.filter(data => data.userId === userId);
     }
-
-    // Filter by energy source if provided
-    if (source) {
-      filteredData = filteredData.filter(
-        data => data.source.toLowerCase() === source.toLowerCase(),
-      );
-    }
-
-    // If no specific user requested, return all data
     const responseData = {
       success: true,
       timestamp: new Date().toISOString(),
       totalReadings: filteredData.length,
       data: filteredData,
       metadata: {
-        refreshInterval: 5000, // Suggest 5-second refresh interval
-        supportedSources: ['solar', 'wind', 'hydro'],
-        dataFormat: 'Real-time energy production data',
-        guardianStatus: 'mock verification for now, remove this later',
+        refreshInterval: 30000,
+        supportedSources: ['solar'],
+        dataFormat: 'NREL Solar Resource API v1 (avg_dni, avg_ghi, avg_lat_tilt)',
+        guardianStatus: 'Ready for Guardian validation',
+        apiEndpoints: {
+          solar: `${NREL_BASE_URL}/solar/solar_resource/v1.json`
+        },
+        apiKeyStatus: NREL_API_KEY === 'DEMO_KEY' ? 'Using demo key - limited to 1000 requests/hour' : 'Using production key',
+        locations: ENERGY_LOCATIONS.map(loc => ({
+          id: loc.id,
+          name: loc.name,
+          coordinates: `${loc.lat}, ${loc.lng}`
+        })),
+        dataSource: 'National Renewable Energy Laboratory (NREL)',
+        notes: [
+          'Solar data from NREL Solar Resource API v1',
+          'avg_dni, avg_ghi, avg_lat_tilt returned as kWh/m²/day (annual and monthly)',
+          'No wind data included'
+        ]
       },
     };
-
     return NextResponse.json(responseData, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        // Enable CORS for frontend requests
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type',
-        // Suggest client refresh every 5 seconds for real-time feel
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         Pragma: 'no-cache',
         Expires: '0',
@@ -118,11 +194,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Smart meter API error:', error);
-
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch smart meter data',
+        error: 'Failed to fetch real solar data from NREL',
+        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
       },
       {
@@ -135,21 +211,25 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle POST requests for testing purposes
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    // Echo back the received data with timestamp and verification
     const responseData = {
       success: true,
-      message: 'Smart meter data received',
+      message: 'Solar data received for Guardian validation',
       receivedData: body,
       timestamp: new Date().toISOString(),
-      verified: true,
-      guardianStatus: 'Mock verification successful',
+      verified: false,
+      guardianStatus: 'Pending Guardian validation',
+      nrelValidation: 'Data source: NREL Solar Resource API v1',
+      nextSteps: [
+        'Send to Hedera Guardian for verification',
+        'Validate against NREL historical data',
+        'Check geographic consistency',
+        'Verify timestamp accuracy',
+        'Mint tokens if validation passes'
+      ]
     };
-
     return NextResponse.json(responseData, {
       status: 200,
       headers: {
@@ -161,11 +241,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Smart meter POST error:', error);
-
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to process smart meter data',
+        error: 'Failed to process solar data for Guardian validation',
+        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
       },
       {

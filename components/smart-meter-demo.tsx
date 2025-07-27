@@ -11,11 +11,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Zap, Leaf, Shield, Clock } from 'lucide-react';
+import { RefreshCw, Zap, Shield, Clock, MapPin, Database, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 export default function SmartMeterDemo() {
-  const [selectedSource, setSelectedSource] = useState<string>('');
   const [selectedUser, setSelectedUser] = useState<string>('');
 
   const {
@@ -27,17 +26,21 @@ export default function SmartMeterDemo() {
     getTotalEnergy,
     getEnergyBySource,
     getVerifiedReadings,
+    getGuardianPendingReadings,
+    getTotalSolarIrradiance,
     isConnected,
     readingsCount,
     guardianStatus,
+    dataSource,
+    apiKeyStatus,
+    supportedLocations,
   } = useSmartMeter({
-    source: selectedSource || undefined,
+    source: 'solar',
     userId: selectedUser || undefined,
     autoRefresh: true,
-    refreshInterval: 3000, // 3-second updates for demo
+    refreshInterval: 30000, // 30-second updates for real NREL data
   });
 
-  const energySources = ['solar', 'wind', 'hydro'];
   const availableUsers = data?.data?.map(reading => reading.userId) || [];
   const uniqueUsers = [...new Set(availableUsers)];
 
@@ -48,7 +51,7 @@ export default function SmartMeterDemo() {
           <div className="flex items-center space-x-2">
             <RefreshCw className="h-6 w-6 animate-spin text-[#10b981]" />
             <span className="text-lg font-bold font-mono text-black">
-              LOADING SMART METER DATA...
+              LOADING NREL SOLAR DATA...
             </span>
           </div>
         </div>
@@ -62,10 +65,10 @@ export default function SmartMeterDemo() {
         <Card className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_#4a5568]">
           <CardHeader>
             <CardTitle className="text-2xl font-black font-mono text-black">
-              CONNECTION ERROR
+              NREL API CONNECTION ERROR
             </CardTitle>
             <CardDescription className="font-medium text-black">
-              Failed to connect to smart meter network: {error}
+              Failed to connect to NREL solar data: {error}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -74,7 +77,7 @@ export default function SmartMeterDemo() {
               className="mt-4 bg-[#10b981] hover:bg-[#059669] text-white font-black font-mono px-8 py-4 border-4 border-black shadow-[8px_8px_0px_0px_#4a5568] hover:shadow-[12px_12px_0px_0px_#4a5568] transition-all"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              RETRY CONNECTION
+              RETRY NREL CONNECTION
             </Button>
           </CardContent>
         </Card>
@@ -88,18 +91,18 @@ export default function SmartMeterDemo() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-6xl font-black font-mono text-black tracking-wider mb-4">
-            SMART METER NETWORK
+            NREL SOLAR ENERGY NETWORK
           </h1>
           <p className="text-xl font-bold font-mono text-black">
-            REAL-TIME RENEWABLE ENERGY MONITORING
+            REAL-TIME SOLAR ENERGY DATA FROM NATIONAL RENEWABLE ENERGY LABORATORY
           </p>
         </div>
         <div className="flex items-center space-x-4">
           <Badge
             className={`${isConnected ? 'bg-[#10b981]' : 'bg-black'} text-white font-bold font-mono px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#4a5568]`}
           >
-            <Zap className="h-4 w-4 mr-2" />
-            {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+            <Database className="h-4 w-4 mr-2" />
+            {isConnected ? 'NREL CONNECTED' : 'DISCONNECTED'}
           </Badge>
           <Button
             onClick={refresh}
@@ -114,6 +117,30 @@ export default function SmartMeterDemo() {
         </div>
       </div>
 
+      {/* NREL Data Source Info */}
+      <Card className="bg-blue-50 border-4 border-blue-500 shadow-[8px_8px_0px_0px_#4a5568]">
+        <CardHeader>
+          <CardTitle className="text-xl font-black font-mono text-blue-800 flex items-center">
+            <Database className="h-5 w-5 mr-2" />
+            NREL DATA SOURCE INFORMATION
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center space-x-2">
+            <Shield className="h-4 w-4 text-blue-600" />
+            <span className="font-bold text-blue-800">Data Source: {dataSource}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <span className="font-bold text-orange-800">API Status: {apiKeyStatus}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <MapPin className="h-4 w-4 text-green-600" />
+            <span className="font-bold text-green-800">{supportedLocations.length} Research Locations</span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Filters */}
       <Card className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_#4a5568]">
         <CardHeader>
@@ -124,43 +151,7 @@ export default function SmartMeterDemo() {
         <CardContent className="flex flex-wrap gap-4">
           <div className="flex flex-wrap gap-2">
             <span className="text-sm font-black font-mono text-black">
-              ENERGY SOURCE:
-            </span>
-            <Button
-              variant={selectedSource === '' ? 'default' : 'outline'}
-              onClick={() => setSelectedSource('')}
-              className={`${
-                selectedSource === ''
-                  ? 'bg-[#10b981] text-white border-4 border-black shadow-[4px_4px_0px_0px_#4a5568]'
-                  : 'bg-white border-4 border-black text-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568]'
-              } font-black font-mono px-4 py-2 transition-all`}
-            >
-              ALL SOURCES
-            </Button>
-            {energySources.map(source => (
-              <Button
-                key={source}
-                variant={selectedSource === source ? 'default' : 'outline'}
-                onClick={() => setSelectedSource(source)}
-                className={`${
-                  selectedSource === source
-                    ? 'bg-[#10b981] text-white border-4 border-black shadow-[4px_4px_0px_0px_#4a5568]'
-                    : 'bg-white border-4 border-black text-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568]'
-                } font-black font-mono px-4 py-2 uppercase transition-all`}
-              >
-                {source}
-              </Button>
-            ))}
-          </div>
-
-          <Separator
-            orientation="vertical"
-            className="h-8 border-2 border-black"
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm font-black font-mono text-black">
-              USER:
+              RESEARCH LOCATION:
             </span>
             <Button
               variant={selectedUser === '' ? 'default' : 'outline'}
@@ -171,9 +162,9 @@ export default function SmartMeterDemo() {
                   : 'bg-white border-4 border-black text-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568]'
               } font-black font-mono px-4 py-2 transition-all`}
             >
-              ALL USERS
+              ALL LOCATIONS
             </Button>
-            {uniqueUsers.slice(0, 3).map(userId => (
+            {uniqueUsers.slice(0, 5).map(userId => (
               <Button
                 key={userId}
                 variant={selectedUser === userId ? 'default' : 'outline'}
@@ -192,7 +183,7 @@ export default function SmartMeterDemo() {
       </Card>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#4a5568] hover:shadow-[12px_12px_0px_0px_#4a5568] transition-all">
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -201,7 +192,7 @@ export default function SmartMeterDemo() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-black font-mono text-black">
-                  TOTAL ENERGY
+                  TOTAL SOLAR ENERGY
                 </p>
                 <p className="text-3xl font-black font-mono text-black">
                   {getTotalEnergy().toFixed(1)}
@@ -217,18 +208,18 @@ export default function SmartMeterDemo() {
         <Card className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#4a5568] hover:shadow-[12px_12px_0px_0px_#4a5568] transition-all">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="w-16 h-16 bg-[#10b981] border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]">
-                <Leaf className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-yellow-500 border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]">
+                <Zap className="w-8 h-8 text-white" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-black font-mono text-black">
-                  SOLAR ENERGY
+                  SOLAR IRRADIANCE
                 </p>
                 <p className="text-3xl font-black font-mono text-black">
-                  {getEnergyBySource('solar').toFixed(1)}
+                  {getTotalSolarIrradiance().toFixed(0)}
                 </p>
                 <p className="text-sm font-black font-mono text-[#10b981]">
-                  kWh
+                  W/m²
                 </p>
               </div>
             </div>
@@ -243,33 +234,13 @@ export default function SmartMeterDemo() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-black font-mono text-black">
-                  VERIFIED
+                  GUARDIAN READY
                 </p>
                 <p className="text-3xl font-black font-mono text-black">
-                  {getVerifiedReadings().length}/{readingsCount}
+                  {getGuardianPendingReadings().length}/{readingsCount}
                 </p>
                 <p className="text-sm font-black font-mono text-[#10b981]">
                   READINGS
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#4a5568] hover:shadow-[12px_12px_0px_0px_#4a5568] transition-all">
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="w-16 h-16 bg-[#10b981] border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_#4a5568]">
-                <Clock className="w-8 h-8 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-black font-mono text-black">
-                  LAST UPDATE
-                </p>
-                <p className="text-lg font-black font-mono text-black">
-                  {lastUpdate
-                    ? new Date(lastUpdate).toLocaleTimeString()
-                    : 'NEVER'}
                 </p>
               </div>
             </div>
@@ -282,12 +253,12 @@ export default function SmartMeterDemo() {
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-black font-mono text-black">
             <div className="w-8 h-8 bg-[#10b981] border-2 border-black flex items-center justify-center mr-4">
-              <Zap className="h-5 w-5 text-white" />
+              <Database className="h-5 w-5 text-white" />
             </div>
-            LIVE SMART METER READINGS
+            LIVE NREL SOLAR READINGS
           </CardTitle>
           <CardDescription className="font-bold font-mono text-black">
-            REAL-TIME ENERGY PRODUCTION DATA FROM RENEWABLE SOURCES
+            REAL-TIME SOLAR ENERGY PRODUCTION DATA FROM NREL RESEARCH FACILITIES
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -296,19 +267,16 @@ export default function SmartMeterDemo() {
               <thead className="bg-black text-white">
                 <tr>
                   <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
-                    USER ID
+                    LOCATION
                   </th>
                   <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
                     ENERGY AMOUNT
                   </th>
                   <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
-                    SOURCE
+                    DATA SOURCE
                   </th>
                   <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
-                    LOCATION
-                  </th>
-                  <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
-                    STATUS
+                    GUARDIAN STATUS
                   </th>
                   <th className="text-left py-4 px-4 font-black font-mono border-2 border-white">
                     TIMESTAMP
@@ -318,32 +286,29 @@ export default function SmartMeterDemo() {
               <tbody className="bg-white">
                 {data?.data?.map((reading, index) => (
                   <tr
-                    key={`${reading.userId}-${index}`}
+                    key={`${reading.userId}-solar-${index}`}
                     className="border-2 border-black hover:bg-gray-100 transition-colors"
                   >
                     <td className="py-4 px-4 font-black font-mono text-sm border-2 border-black">
-                      {reading.userId}
+                      {reading.location}
                     </td>
                     <td className="py-4 px-4 font-black font-mono text-[#10b981] border-2 border-black">
                       {reading.energyAmount.toFixed(1)} {reading.unit}
                     </td>
-                    <td className="py-4 px-4 border-2 border-black">
-                      <Badge className="bg-[#10b981] text-white font-bold font-mono px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] uppercase">
-                        {reading.source}
-                      </Badge>
-                    </td>
                     <td className="py-4 px-4 text-sm font-bold text-black border-2 border-black">
-                      {reading.location}
+                      {reading.dataSource}
                     </td>
                     <td className="py-4 px-4 border-2 border-black">
                       <Badge
                         className={`${
-                          reading.verified
+                          reading.guardianValidation === 'verified'
                             ? 'bg-[#10b981] text-white'
-                            : 'bg-black text-white'
-                        } font-bold font-mono px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_#4a5568]`}
+                            : reading.guardianValidation === 'pending'
+                            ? 'bg-yellow-500 text-white'
+                            : 'bg-red-500 text-white'
+                        } font-bold font-mono px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_#4a5568] uppercase`}
                       >
-                        {reading.verified ? 'VERIFIED' : 'PENDING'}
+                        {reading.guardianValidation}
                       </Badge>
                     </td>
                     <td className="py-4 px-4 text-sm font-black font-mono text-black border-2 border-black">
@@ -358,33 +323,36 @@ export default function SmartMeterDemo() {
           {data?.data?.length === 0 && (
             <div className="text-center py-8">
               <p className="text-xl font-black font-mono text-black">
-                NO SMART METER READINGS FOUND FOR THE SELECTED FILTERS.
+                NO NREL SOLAR READINGS FOUND FOR THE SELECTED FILTERS.
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Guardian Status */}
+      {/* Guardian Integration Status */}
       <Card className="bg-black border-4 border-[#10b981] shadow-[12px_12px_0px_0px_#4a5568]">
         <CardHeader>
           <CardTitle className="text-2xl font-black font-mono text-white">
-            HEDERA GUARDIAN STATUS
+            HEDERA GUARDIAN INTEGRATION STATUS
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-black font-mono text-white">
-                VERIFICATION SERVICE
+                NREL DATA VALIDATION
               </p>
               <p className="text-xl font-black font-mono text-[#10b981]">
                 {guardianStatus}
               </p>
+              <p className="text-sm font-mono text-gray-300 mt-2">
+                Ready for Guardian verification of NREL solar energy data
+              </p>
             </div>
             <Badge className="bg-[#10b981] text-white font-black font-mono px-4 py-2 border-2 border-white shadow-[4px_4px_0px_0px_white]">
               <Shield className="h-4 w-4 mr-2" />
-              ACTIVE
+              READY FOR VALIDATION
             </Badge>
           </div>
         </CardContent>
