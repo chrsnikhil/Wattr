@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useSmartMeter } from '@/hooks/use-smart-meter';
+import { useUserRole } from '@/hooks/use-user-role';
 import {
   Card,
   CardContent,
@@ -73,7 +74,10 @@ interface EnergyListing {
 
 export default function EnergyTradingDashboard() {
   const { authenticated, user } = usePrivy();
-  
+
+  // User role and permissions
+  const { userProfile, hasPermission } = useUserRole();
+
   // Smart meter hook for real-time data
   const {
     data: smartMeterData,
@@ -92,6 +96,12 @@ export default function EnergyTradingDashboard() {
   const [readings, setReadings] = useState<EnergyReading[]>([]);
   const [stats, setStats] = useState<MeteringStats | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Permission checks
+  const canCreateListings = hasPermission('create', 'listings');
+  const canTrade = hasPermission('trade', 'energy');
+  const canAccessAnalytics = hasPermission('view', 'analytics');
+  const isViewer = userProfile?.role === 'viewer';
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -135,24 +145,26 @@ export default function EnergyTradingDashboard() {
   // Convert smart meter data to our local format
   useEffect(() => {
     if (smartMeterData?.data) {
-      const convertedReadings: EnergyReading[] = smartMeterData.data.map((reading, index) => ({
-        meterId: `METER-${reading.userId}`,
-        accountId: walletAddress || reading.userId,
-        meterType: 'production' as const,
-        energyAmount: reading.energyAmount,
-        energySource: reading.source,
-        timestamp: reading.timestamp,
-        verified: reading.verified,
-        verificationSource: reading.dataSource || 'NREL Solar Resource API',
-        location: reading.location,
-        meterSerialNumber: `SM-${reading.userId}-${index}`,
-      }));
-      
+      const convertedReadings: EnergyReading[] = smartMeterData.data.map(
+        (reading, index) => ({
+          meterId: `METER-${reading.userId}`,
+          accountId: walletAddress || reading.userId,
+          meterType: 'production' as const,
+          energyAmount: reading.energyAmount,
+          energySource: reading.source,
+          timestamp: reading.timestamp,
+          verified: reading.verified,
+          verificationSource: reading.dataSource || 'NREL Solar Resource API',
+          location: reading.location,
+          meterSerialNumber: `SM-${reading.userId}-${index}`,
+        }),
+      );
+
       setReadings(convertedReadings);
-      
+
       // Calculate stats from smart meter data
       const totalProduction = getTotalEnergy();
-      
+
       const calculatedStats: MeteringStats = {
         totalProduction,
         totalConsumption: totalProduction * 0.3, // Mock consumption as 30% of production
@@ -162,10 +174,16 @@ export default function EnergyTradingDashboard() {
         totalMeters: smartMeterData.data.length,
         totalReadings: smartMeterData.totalReadings,
       };
-      
+
       setStats(calculatedStats);
     }
-  }, [smartMeterData, walletAddress, getTotalEnergy, getEnergyBySource, getVerifiedReadings]);
+  }, [
+    smartMeterData,
+    walletAddress,
+    getTotalEnergy,
+    getEnergyBySource,
+    getVerifiedReadings,
+  ]);
 
   // Set smart meter errors
   useEffect(() => {
@@ -200,17 +218,23 @@ export default function EnergyTradingDashboard() {
 
   const getSourceIcon = (source: string) => {
     switch (source) {
-      case 'solar': return <Sun className="h-4 w-4 text-yellow-500" />
-      case 'wind': return <Wind className="h-4 w-4 text-blue-500" />
-      case 'grid': return <Home className="h-4 w-4 text-gray-500" />
-      default: return <Factory className="h-4 w-4 text-gray-500" />
+      case 'solar':
+        return <Sun className="h-4 w-4 text-yellow-500" />;
+      case 'wind':
+        return <Wind className="h-4 w-4 text-blue-500" />;
+      case 'grid':
+        return <Home className="h-4 w-4 text-gray-500" />;
+      default:
+        return <Factory className="h-4 w-4 text-gray-500" />;
     }
   };
 
   const handleBuyEnergy = async (listing: EnergyListing) => {
     setLoading(true);
     try {
-      setSuccess(`Successfully purchased ${listing.energyAmount} kWh from ${listing.sellerId}!`);
+      setSuccess(
+        `Successfully purchased ${listing.energyAmount} kWh from ${listing.sellerId}!`,
+      );
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(`Failed to purchase energy: ${err}`);
@@ -243,6 +267,24 @@ export default function EnergyTradingDashboard() {
   return (
     <div className="min-h-screen bg-[#f5f5f5] bg-[linear-gradient(#4a5568_1px,transparent_1px),linear-gradient(90deg,#4a5568_1px,transparent_1px)] bg-[size:20px_20px] p-6">
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Viewer Mode Alert */}
+        {isViewer && (
+          <Alert className="bg-blue-100 border-4 border-blue-500 shadow-[8px_8px_0px_0px_#4a5568]">
+            <AlertTriangle className="h-6 w-6 text-blue-500" />
+            <AlertDescription className="font-black font-mono text-blue-800 text-lg">
+              <div className="flex items-center justify-between">
+                <span>
+                  DEMO MODE: You're viewing as a demo user. Trading features are
+                  read-only.
+                </span>
+                <Badge className="bg-blue-500 text-white border-2 border-black font-black font-mono">
+                  VIEWER ROLE
+                </Badge>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-[#10b981] border-4 border-black flex items-center justify-center shadow-[8px_8px_0px_0px_#4a5568]">
@@ -262,7 +304,9 @@ export default function EnergyTradingDashboard() {
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-black" />
                 <span className="font-black font-mono text-black text-sm">
-                  {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'NOT CONNECTED'}
+                  {walletAddress
+                    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                    : 'NOT CONNECTED'}
                 </span>
               </div>
             </div>
@@ -357,7 +401,9 @@ export default function EnergyTradingDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black font-mono text-black">{stats.totalMeters}</div>
+                <div className="text-3xl font-black font-mono text-black">
+                  {stats.totalMeters}
+                </div>
                 <p className="text-sm font-bold font-mono text-[#4a5568]">
                   CONNECTED DEVICES
                 </p>
@@ -369,26 +415,26 @@ export default function EnergyTradingDashboard() {
         <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#4a5568]">
           <Tabs defaultValue="marketplace" className="w-full">
             <TabsList className="grid w-full grid-cols-4 bg-[#f5f5f5] border-b-4 border-black p-2">
-              <TabsTrigger 
-                value="marketplace" 
+              <TabsTrigger
+                value="marketplace"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
                 MARKETPLACE
               </TabsTrigger>
-              <TabsTrigger 
-                value="listings" 
+              <TabsTrigger
+                value="listings"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
                 YOUR LISTINGS
               </TabsTrigger>
-              <TabsTrigger 
-                value="readings" 
+              <TabsTrigger
+                value="readings"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
                 ENERGY DATA
               </TabsTrigger>
-              <TabsTrigger 
-                value="analytics" 
+              <TabsTrigger
+                value="analytics"
                 className="font-black font-mono text-black data-[state=active]:bg-[#10b981] data-[state=active]:text-white border-2 border-black data-[state=active]:shadow-[2px_2px_0px_0px_#4a5568]"
               >
                 ANALYTICS
@@ -410,8 +456,11 @@ export default function EnergyTradingDashboard() {
                 </div>
 
                 <div className="grid gap-6">
-                  {marketplaceListings.map((listing) => (
-                    <Card key={listing.id} className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]">
+                  {marketplaceListings.map(listing => (
+                    <Card
+                      key={listing.id}
+                      className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]"
+                    >
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-6">
                           <div className="flex items-center gap-3">
@@ -420,7 +469,8 @@ export default function EnergyTradingDashboard() {
                             </div>
                             <div>
                               <h3 className="text-xl font-black font-mono text-black">
-                                {listing.energyAmount} kWh {listing.energySource.toUpperCase()}
+                                {listing.energyAmount} kWh{' '}
+                                {listing.energySource.toUpperCase()}
                               </h3>
                               <p className="font-bold font-mono text-[#4a5568]">
                                 From: {listing.sellerId} • {listing.location}
@@ -437,7 +487,10 @@ export default function EnergyTradingDashboard() {
                               )}
                             </div>
                             <p className="text-2xl font-black font-mono text-black">
-                              {(listing.energyAmount * listing.pricePerKwh).toFixed(1)} TOKENS
+                              {(
+                                listing.energyAmount * listing.pricePerKwh
+                              ).toFixed(1)}{' '}
+                              TOKENS
                             </p>
                             <p className="text-sm font-bold font-mono text-[#4a5568]">
                               {listing.pricePerKwh} TOKENS/kWh
@@ -455,14 +508,27 @@ export default function EnergyTradingDashboard() {
                               SOURCE: {listing.energySource.toUpperCase()}
                             </Badge>
                           </div>
-                          <Button 
-                            onClick={() => handleBuyEnergy(listing)}
-                            disabled={loading || !stats || stats.netTokens < (listing.energyAmount * listing.pricePerKwh)}
-                            className="bg-[#10b981] hover:bg-[#059669] text-white font-black font-mono px-6 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568] transition-all"
+                          <Button
+                            onClick={() =>
+                              canTrade ? handleBuyEnergy(listing) : null
+                            }
+                            disabled={
+                              !canTrade ||
+                              loading ||
+                              !stats ||
+                              stats.netTokens <
+                                listing.energyAmount * listing.pricePerKwh
+                            }
+                            className="bg-[#10b981] hover:bg-[#059669] text-white font-black font-mono px-6 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#4a5568] hover:shadow-[6px_6px_0px_0px_#4a5568] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <ShoppingCart className="w-4 h-4 mr-2" />
-                            BUY ENERGY
+                            {canTrade ? 'BUY ENERGY' : 'VIEW ONLY'}
                           </Button>
+                          {!canTrade && (
+                            <p className="text-xs font-bold font-mono text-[#4a5568] mt-1">
+                              Trading requires prosumer role
+                            </p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -494,7 +560,9 @@ export default function EnergyTradingDashboard() {
                           YOUR AVAILABLE ENERGY
                         </p>
                         <p className="font-bold font-mono text-white">
-                          {stats ? `${(stats.totalProduction * 0.3).toFixed(1)} kWh READY TO SELL` : 'LOADING...'}
+                          {stats
+                            ? `${(stats.totalProduction * 0.3).toFixed(1)} kWh READY TO SELL`
+                            : 'LOADING...'}
                         </p>
                       </div>
                     </div>
@@ -512,7 +580,9 @@ export default function EnergyTradingDashboard() {
                               ENERGY AMOUNT (kWh)
                             </p>
                             <p className="bg-[#f5f5f5] border-2 border-black p-3 font-black font-mono text-black">
-                              {stats ? `${(stats.totalProduction * 0.3).toFixed(1)} kWh` : '0.0 kWh'}
+                              {stats
+                                ? `${(stats.totalProduction * 0.3).toFixed(1)} kWh`
+                                : '0.0 kWh'}
                             </p>
                           </div>
                           <div>
@@ -533,12 +603,23 @@ export default function EnergyTradingDashboard() {
                             </p>
                           </div>
                           <Button
-                            disabled={!stats || stats.totalProduction <= 0}
-                            className="w-full bg-[#10b981] hover:bg-[#059669] text-white font-black font-mono px-6 py-3 border-4 border-black shadow-[6px_6px_0px_0px_#4a5568] hover:shadow-[8px_8px_0px_0px_#4a5568] transition-all"
+                            disabled={
+                              !canCreateListings ||
+                              !stats ||
+                              stats.totalProduction <= 0
+                            }
+                            className="w-full bg-[#10b981] hover:bg-[#059669] text-white font-black font-mono px-6 py-3 border-4 border-black shadow-[6px_6px_0px_0px_#4a5568] hover:shadow-[8px_8px_0px_0px_#4a5568] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Plus className="w-5 h-5 mr-2" />
-                            CREATE LISTING
+                            {canCreateListings
+                              ? 'CREATE LISTING'
+                              : 'LISTING RESTRICTED'}
                           </Button>
+                          {!canCreateListings && (
+                            <p className="text-xs font-bold font-mono text-[#4a5568] mt-2 text-center">
+                              Viewer role can only browse listings
+                            </p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -598,7 +679,7 @@ export default function EnergyTradingDashboard() {
                     <p className="font-bold font-mono text-[#4a5568] mb-4">
                       WAITING FOR SMART METER DATA FROM NREL API
                     </p>
-                    <Button 
+                    <Button
                       onClick={refreshData}
                       disabled={loading || smartMeterLoading}
                       className="bg-black hover:bg-[#2d3748] text-white font-black font-mono px-6 py-3 border-4 border-black shadow-[6px_6px_0px_0px_#4a5568] hover:shadow-[8px_8px_0px_0px_#4a5568] transition-all"
@@ -610,7 +691,10 @@ export default function EnergyTradingDashboard() {
                 ) : (
                   <div className="grid gap-6">
                     {(readings || []).map((reading, index) => (
-                      <Card key={index} className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]">
+                      <Card
+                        key={index}
+                        className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]"
+                      >
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center gap-3">
@@ -695,7 +779,11 @@ export default function EnergyTradingDashboard() {
                             </div>
                             <div className="bg-[#10b981] border-2 border-black p-2">
                               <p className="font-black font-mono text-white text-sm">
-                                TOKEN ACTION: {reading.meterType === 'production' ? 'MINTED' : 'BURNED'} {reading.energyAmount} TOKENS
+                                TOKEN ACTION:{' '}
+                                {reading.meterType === 'production'
+                                  ? 'MINTED'
+                                  : 'BURNED'}{' '}
+                                {reading.energyAmount} TOKENS
                               </p>
                             </div>
                           </div>
@@ -725,33 +813,50 @@ export default function EnergyTradingDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]">
                       <CardContent className="p-6">
-                        <h3 className="text-xl font-black font-mono text-black mb-4">ENERGY BALANCE</h3>
+                        <h3 className="text-xl font-black font-mono text-black mb-4">
+                          ENERGY BALANCE
+                        </h3>
                         <div className="space-y-4">
                           <div>
                             <div className="flex justify-between font-bold font-mono text-black mb-2">
                               <span>PRODUCTION</span>
-                              <span>{stats.totalProduction.toFixed(1)} kWh</span>
+                              <span>
+                                {stats.totalProduction.toFixed(1)} kWh
+                              </span>
                             </div>
-                            <Progress 
-                              value={Math.min(stats.totalProduction / Math.max(stats.totalProduction + stats.totalConsumption, 1) * 100, 100)} 
-                              className="bg-[#f5f5f5] border-2 border-black" 
+                            <Progress
+                              value={Math.min(
+                                (stats.totalProduction /
+                                  Math.max(
+                                    stats.totalProduction +
+                                      stats.totalConsumption,
+                                    1,
+                                  )) *
+                                  100,
+                                100,
+                              )}
+                              className="bg-[#f5f5f5] border-2 border-black"
                             />
                           </div>
-                          
+
                           <div>
                             <div className="flex justify-between font-bold font-mono text-black mb-2">
                               <span>AVAILABLE FOR SALE</span>
-                              <span>{(stats.totalProduction * 0.3).toFixed(1)} kWh</span>
+                              <span>
+                                {(stats.totalProduction * 0.3).toFixed(1)} kWh
+                              </span>
                             </div>
-                            <Progress 
-                              value={30} 
-                              className="bg-[#f5f5f5] border-2 border-black" 
+                            <Progress
+                              value={30}
+                              className="bg-[#f5f5f5] border-2 border-black"
                             />
                           </div>
 
                           <div className="pt-4 border-t-2 border-black">
                             <div className="flex justify-between items-center">
-                              <span className="font-black font-mono text-black">TRADING POTENTIAL</span>
+                              <span className="font-black font-mono text-black">
+                                TRADING POTENTIAL
+                              </span>
                               <Badge className="bg-[#10b981] text-white font-black font-mono text-lg px-3 py-1 border-2 border-black">
                                 {(stats.totalProduction * 0.3).toFixed(1)} kWh
                               </Badge>
@@ -763,7 +868,9 @@ export default function EnergyTradingDashboard() {
 
                     <Card className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568]">
                       <CardContent className="p-6">
-                        <h3 className="text-xl font-black font-mono text-black mb-4">TOKEN METRICS</h3>
+                        <h3 className="text-xl font-black font-mono text-black mb-4">
+                          TOKEN METRICS
+                        </h3>
                         <div className="space-y-4">
                           <div className="bg-[#f5f5f5] border-2 border-black p-3">
                             <p className="text-xs font-black font-mono text-[#4a5568]">
@@ -773,13 +880,19 @@ export default function EnergyTradingDashboard() {
                               {stats.netTokens}
                             </p>
                           </div>
-                          
+
                           <div className="bg-[#f5f5f5] border-2 border-black p-3">
                             <p className="text-xs font-black font-mono text-[#4a5568]">
                               TRADING VOLUME
                             </p>
                             <p className="text-2xl font-black font-mono text-black">
-                              {marketplaceListings.reduce((sum, listing) => sum + listing.energyAmount, 0).toFixed(1)} kWh
+                              {marketplaceListings
+                                .reduce(
+                                  (sum, listing) => sum + listing.energyAmount,
+                                  0,
+                                )
+                                .toFixed(1)}{' '}
+                              kWh
                             </p>
                           </div>
 
@@ -788,7 +901,15 @@ export default function EnergyTradingDashboard() {
                               MARKET VALUE
                             </p>
                             <p className="text-2xl font-black font-mono text-white">
-                              {marketplaceListings.reduce((sum, listing) => sum + (listing.energyAmount * listing.pricePerKwh), 0).toFixed(0)} TOKENS
+                              {marketplaceListings
+                                .reduce(
+                                  (sum, listing) =>
+                                    sum +
+                                    listing.energyAmount * listing.pricePerKwh,
+                                  0,
+                                )
+                                .toFixed(0)}{' '}
+                              TOKENS
                             </p>
                           </div>
                         </div>
@@ -797,34 +918,53 @@ export default function EnergyTradingDashboard() {
 
                     <Card className="bg-white border-4 border-black shadow-[6px_6px_0px_0px_#4a5568] md:col-span-2">
                       <CardContent className="p-6">
-                        <h3 className="text-xl font-black font-mono text-black mb-4">MARKET OVERVIEW</h3>
+                        <h3 className="text-xl font-black font-mono text-black mb-4">
+                          MARKET OVERVIEW
+                        </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="bg-[#f5f5f5] border-2 border-black p-3 text-center">
                             <ShoppingCart className="h-8 w-8 mx-auto text-[#10b981] mb-2" />
-                            <p className="text-lg font-black font-mono text-black">{marketplaceListings.length}</p>
-                            <p className="text-xs font-black font-mono text-[#4a5568]">ACTIVE LISTINGS</p>
+                            <p className="text-lg font-black font-mono text-black">
+                              {marketplaceListings.length}
+                            </p>
+                            <p className="text-xs font-black font-mono text-[#4a5568]">
+                              ACTIVE LISTINGS
+                            </p>
                           </div>
-                          
+
                           <div className="bg-[#f5f5f5] border-2 border-black p-3 text-center">
                             <Activity className="h-8 w-8 mx-auto text-[#10b981] mb-2" />
-                            <p className="text-lg font-black font-mono text-black">{stats.totalReadings}</p>
-                            <p className="text-xs font-black font-mono text-[#4a5568]">TOTAL READINGS</p>
+                            <p className="text-lg font-black font-mono text-black">
+                              {stats.totalReadings}
+                            </p>
+                            <p className="text-xs font-black font-mono text-[#4a5568]">
+                              TOTAL READINGS
+                            </p>
                           </div>
-                          
+
                           <div className="bg-[#f5f5f5] border-2 border-black p-3 text-center">
                             <Sun className="h-8 w-8 mx-auto text-yellow-500 mb-2" />
                             <p className="text-lg font-black font-mono text-black">
                               {getEnergyBySource('solar').toFixed(1)}
                             </p>
-                            <p className="text-xs font-black font-mono text-[#4a5568]">SOLAR ENERGY</p>
+                            <p className="text-xs font-black font-mono text-[#4a5568]">
+                              SOLAR ENERGY
+                            </p>
                           </div>
-                          
+
                           <div className="bg-[#f5f5f5] border-2 border-black p-3 text-center">
                             <TrendingUp className="h-8 w-8 mx-auto text-[#10b981] mb-2" />
                             <p className="text-lg font-black font-mono text-black">
-                              {(marketplaceListings.reduce((sum, listing) => sum + listing.pricePerKwh, 0) / marketplaceListings.length).toFixed(2)}
+                              {(
+                                marketplaceListings.reduce(
+                                  (sum, listing) => sum + listing.pricePerKwh,
+                                  0,
+                                ) / marketplaceListings.length
+                              ).toFixed(2)}
                             </p>
-                            <p className="text-xs font-black font-mono text-[#4a5568]">AVG PRICE/kWh</p>
+                            <p className="text-xs font-black font-mono text-[#4a5568]">
+                              AVG PRICE/kWh
+                            </p>
                           </div>
                         </div>
                       </CardContent>
