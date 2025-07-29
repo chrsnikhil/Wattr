@@ -43,7 +43,7 @@ export default function MainDashboard() {
 
   // Helper functions
   const userRole = userProfile?.role;
-  const canAccessMarketplace = hasPermission('access', 'marketplace');
+  const canAccessMarketplace = hasPermission('read', 'marketplace');
   const canCreateListings = hasPermission('create', 'listings');
   const canTrade = hasPermission('trade', 'energy');
 
