@@ -16,6 +16,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import ConnectWalletButton from '@/components/connect-wallet-button';
+import WalletTokenManager from '@/components/wallet-token-manager';
+import { useUserRole } from '@/hooks/use-user-role';
 import {
   Activity,
   Zap,
@@ -62,6 +64,7 @@ interface MeteringStats {
 
 export default function EnergyMeteringDashboard() {
   const { authenticated, user } = usePrivy();
+  const { userProfile, hasPermission } = useUserRole();
 
   // Smart meter hook for real-time data
   const {
@@ -322,6 +325,28 @@ export default function EnergyMeteringDashboard() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Wallet Token Manager - For All Authenticated Users */}
+        {authenticated && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#10b981] border-2 border-black flex items-center justify-center">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black font-mono text-black">
+                  WALLET TOKEN MANAGEMENT
+                </h2>
+                <p className="text-sm font-bold font-mono text-[#4a5568]">
+                  {userProfile?.role === 'prosumer'
+                    ? 'MINT AND BURN ENERGY CREDITS DIRECTLY TO YOUR WALLET'
+                    : 'VIEW YOUR ENERGY TOKEN BALANCE (UPGRADE TO PROSUMER FOR MINTING)'}
+                </p>
+              </div>
+            </div>
+            <WalletTokenManager />
           </div>
         )}
 

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnergyTradingService } from '@/lib/energy-trading-service';
+import { getRedisEnergyTradingService } from '@/lib/redis-energy-trading-service';
 
-// Mock mode check
+// Mock mode check - determine if we should use Redis or in-memory/mock data
 const MOCK_MODE =
   process.env.HEDERA_MOCK_MODE === 'true' ||
   !process.env.HEDERA_PRIVATE_KEY ||
   !process.env.HEDERA_ACCOUNT_ID;
+
+// Redis mode check - use Redis if REDIS_URL is available
+const USE_REDIS = !!process.env.REDIS_URL;
 
 // Mock data for development
 const mockListings = [
@@ -93,7 +97,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
     const accountId = searchParams.get('accountId');
 
-    if (MOCK_MODE) {
+    if (MOCK_MODE && !USE_REDIS) {
       console.log('Running in mock mode - returning mock trading data');
 
       switch (action) {
@@ -169,15 +173,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Real implementation
-    const tradingService = getEnergyTradingService();
+    // Real implementation - use Redis if available, otherwise fallback to in-memory
+    const tradingService = USE_REDIS
+      ? getRedisEnergyTradingService()
+      : getEnergyTradingService();
 
     switch (action) {
       case 'listings':
-        const listings = tradingService.getActiveListings();
+        const listings = USE_REDIS
+          ? await tradingService.getActiveListings()
+          : (tradingService as any).getActiveListings();
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           listings,
           timestamp: new Date().toISOString(),
         });
@@ -189,10 +198,13 @@ export async function GET(request: NextRequest) {
             { status: 400 },
           );
         }
-        const userTrades = tradingService.getUserTrades(accountId);
+        const userTrades = USE_REDIS
+          ? await tradingService.getUserTrades(accountId)
+          : (tradingService as any).getUserTrades(accountId);
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           trades: userTrades,
           timestamp: new Date().toISOString(),
         });
@@ -204,19 +216,25 @@ export async function GET(request: NextRequest) {
             { status: 400 },
           );
         }
-        const userListings = tradingService.getUserListings(accountId);
+        const userListings = USE_REDIS
+          ? await tradingService.getUserListings(accountId)
+          : (tradingService as any).getUserListings(accountId);
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           listings: userListings,
           timestamp: new Date().toISOString(),
         });
 
       case 'stats':
-        const stats = tradingService.getTradingStats();
+        const stats = USE_REDIS
+          ? await tradingService.getTradingStats()
+          : (tradingService as any).getTradingStats();
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           stats,
           timestamp: new Date().toISOString(),
         });
@@ -225,6 +243,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           message: 'Energy trading service available',
           availableActions: [
             'listings',
@@ -254,7 +273,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, ...params } = body;
 
-    if (MOCK_MODE) {
+    if (MOCK_MODE && !USE_REDIS) {
       console.log('Running in mock mode - simulating trading operations');
 
       switch (action) {
@@ -364,8 +383,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Real implementation
-    const tradingService = getEnergyTradingService();
+    // Real implementation - use Redis if available, otherwise fallback to in-memory
+    const tradingService = USE_REDIS
+      ? getRedisEnergyTradingService()
+      : getEnergyTradingService();
 
     switch (action) {
       case 'create-listing':
@@ -381,6 +402,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           action: 'create-listing',
           listing,
           timestamp: new Date().toISOString(),
@@ -396,6 +418,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           action: 'execute-trade',
           trade,
           explorerUrl: trade.transactionId
@@ -405,23 +428,20 @@ export async function POST(request: NextRequest) {
         });
 
       case 'associate-token':
-        const associateTxId = await tradingService.associateUserWithWEC(
-          params.accountId,
-          params.userPrivateKey,
-        );
-
+        // This should be handled by wallet-tokens API instead
+        // For compatibility, return a mock response
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           action: 'associate-token',
           accountId: params.accountId,
-          transactionId: associateTxId,
-          explorerUrl: `https://hashscan.io/testnet/transaction/${associateTxId}`,
+          message: 'Token association should be handled via wallet-tokens API',
           timestamp: new Date().toISOString(),
         });
 
       case 'cancel-listing':
-        const cancelled = tradingService.cancelListing(
+        const cancelled = await tradingService.cancelListing(
           params.listingId,
           params.sellerId,
         );
@@ -429,6 +449,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           action: 'cancel-listing',
           listingId: params.listingId,
           cancelled,
@@ -436,7 +457,7 @@ export async function POST(request: NextRequest) {
         });
 
       case 'register-user':
-        tradingService.registerUser({
+        await tradingService.registerUser({
           accountId: params.accountId,
           name: params.name,
           location: params.location,
@@ -448,11 +469,16 @@ export async function POST(request: NextRequest) {
           reputation: 5.0,
         });
 
+        const userProfile = USE_REDIS
+          ? await tradingService.getUserProfile(params.accountId)
+          : (tradingService as any).getUserProfile(params.accountId);
+
         return NextResponse.json({
           success: true,
           mockMode: false,
+          redisMode: USE_REDIS,
           action: 'register-user',
-          user: tradingService.getUserProfile(params.accountId),
+          user: userProfile,
           timestamp: new Date().toISOString(),
         });
 

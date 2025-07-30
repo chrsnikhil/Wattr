@@ -20,9 +20,14 @@ export interface Permission {
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   prosumer: [
     { action: 'read', resource: 'marketplace', allowed: true },
+    { action: 'access', resource: 'marketplace', allowed: true },
     { action: 'create', resource: 'listing', allowed: true },
+    { action: 'create', resource: 'listings', allowed: true }, // Added for backwards compatibility
     { action: 'buy', resource: 'energy', allowed: true },
     { action: 'sell', resource: 'energy', allowed: true },
+    { action: 'trade', resource: 'energy', allowed: true }, // Added for token operations
+    { action: 'mint', resource: 'tokens', allowed: true }, // Added for token minting
+    { action: 'burn', resource: 'tokens', allowed: true }, // Added for token burning
     { action: 'view', resource: 'analytics', allowed: true },
     { action: 'view', resource: 'energy-data', allowed: true },
     { action: 'create', resource: 'transactions', allowed: true },
@@ -30,11 +35,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   viewer: [
     { action: 'read', resource: 'marketplace', allowed: true },
+    { action: 'access', resource: 'marketplace', allowed: false },
     { action: 'view', resource: 'analytics', allowed: true },
     { action: 'view', resource: 'energy-data', allowed: true },
     { action: 'create', resource: 'listing', allowed: false },
+    { action: 'create', resource: 'listings', allowed: false },
     { action: 'buy', resource: 'energy', allowed: false },
     { action: 'sell', resource: 'energy', allowed: false },
+    { action: 'trade', resource: 'energy', allowed: false },
+    { action: 'mint', resource: 'tokens', allowed: false },
+    { action: 'burn', resource: 'tokens', allowed: false },
     { action: 'create', resource: 'transactions', allowed: false },
     { action: 'manage', resource: 'profile', allowed: false },
   ],
@@ -145,13 +155,30 @@ export class UserRoleManager {
     return userProfile;
   }
 
-  // Clear/remove user (for role switching)
-  static clearUser(walletAddress: string): boolean {
-    if (MOCK_USERS[walletAddress]) {
-      delete MOCK_USERS[walletAddress];
-      return true;
+  // Clear a user (for logout/role switching)
+  static clearUser(walletAddress: string): void {
+    delete MOCK_USERS[walletAddress];
+  }
+
+  // Refresh user permissions with latest role permissions
+  static refreshUserPermissions(walletAddress: string): UserProfile | null {
+    const user = MOCK_USERS[walletAddress];
+    if (user) {
+      user.permissions = ROLE_PERMISSIONS[user.role];
+      user.lastActive = new Date().toISOString();
+      return user;
     }
-    return false;
+    return null;
+  }
+
+  // Refresh all users with updated permissions
+  static refreshAllUserPermissions(): void {
+    Object.keys(MOCK_USERS).forEach(walletAddress => {
+      const user = MOCK_USERS[walletAddress];
+      if (user) {
+        user.permissions = ROLE_PERMISSIONS[user.role];
+      }
+    });
   }
 
   // Auto-assign role based on wallet activity or manual selection

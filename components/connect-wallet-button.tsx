@@ -1,15 +1,56 @@
 'use client';
 
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Wallet, LogOut, User, RefreshCw, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function ConnectWalletButton() {
   const { ready, authenticated, login, logout, user } = usePrivy();
+  const { wallets } = useWallets();
+  const router = useRouter();
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [checkingMapping, setCheckingMapping] = useState(false);
+
+  // Check wallet mapping when user connects and has wallet
+  useEffect(() => {
+    if (authenticated && wallets && wallets.length > 0 && !checkingMapping) {
+      checkWalletMapping();
+    }
+  }, [authenticated, wallets, checkingMapping]);
+
+  const checkWalletMapping = async () => {
+    if (!wallets || wallets.length === 0) return;
+
+    setCheckingMapping(true);
+    try {
+      const walletAddress = wallets[0].address;
+
+      const response = await fetch(
+        '/api/wallet-tokens?' +
+          new URLSearchParams({
+            action: 'check-mapping',
+            walletAddress,
+          }),
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.isMapped) {
+          // Redirect to setup if wallet is not mapped
+          router.push('/setup');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking wallet mapping:', error);
+    } finally {
+      setCheckingMapping(false);
+    }
+  };
 
   // Reset connecting state when authentication status changes
   useEffect(() => {

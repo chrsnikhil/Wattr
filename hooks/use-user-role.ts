@@ -47,7 +47,10 @@ export function useUserRole(): UseUserRoleResult {
           `${autoRole.charAt(0).toUpperCase() + autoRole.slice(1)} User`,
         );
       } else {
-        // Update last active timestamp
+        // Update last active timestamp and refresh permissions
+        UserRoleManager.updateLastActive(walletAddress);
+        profile =
+          UserRoleManager.refreshUserPermissions(walletAddress) || profile;
         UserRoleManager.updateLastActive(walletAddress);
       }
 

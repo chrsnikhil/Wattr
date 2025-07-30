@@ -2,6 +2,7 @@ import {
   Client,
   PrivateKey,
   AccountId,
+  AccountCreateTransaction,
   TokenCreateTransaction,
   TokenType,
   TokenSupplyType,
@@ -128,6 +129,58 @@ export class HederaTokenService {
   }
 
   /**
+   * Create a new Hedera account for a wallet
+   * This will be used for individual wallet accounts
+   */
+  async createAccount(
+    initialBalance: number = 10, // Start with 10 HBAR
+    memo: string = 'Wattr Energy Trading Account',
+  ): Promise<{ accountId: string; privateKey: string; publicKey: string }> {
+    try {
+      console.log('Creating new Hedera account...');
+
+      // Generate new key pair for the account
+      const newAccountPrivateKey = PrivateKey.generateED25519();
+      const newAccountPublicKey = newAccountPrivateKey.publicKey;
+
+      // Create account creation transaction
+      const accountCreateTx = new AccountCreateTransaction()
+        .setKey(newAccountPublicKey)
+        .setInitialBalance(new Hbar(initialBalance))
+        .setAccountMemo(memo)
+        .setMaxTransactionFee(new Hbar(20))
+        .freezeWith(this.client);
+
+      // Sign and execute the transaction
+      const accountCreateTxSigned = await accountCreateTx.sign(
+        this.operatorPrivateKey,
+      );
+      const accountCreateSubmit = await accountCreateTxSigned.execute(
+        this.client,
+      );
+      const accountCreateRx = await accountCreateSubmit.getReceipt(this.client);
+
+      const accountId = accountCreateRx.accountId?.toString();
+      if (!accountId) {
+        throw new Error('Account creation failed - no account ID returned');
+      }
+
+      console.log(`New Hedera account created: ${accountId}`);
+
+      return {
+        accountId,
+        privateKey: newAccountPrivateKey.toString(),
+        publicKey: newAccountPublicKey.toString(),
+      };
+    } catch (error) {
+      console.error('Error creating Hedera account:', error);
+      throw new Error(
+        `Failed to create Hedera account: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
    * Mint new energy tokens (when new renewable energy is produced)
    */
   async mintEnergyTokens(
@@ -159,6 +212,112 @@ export class HederaTokenService {
       console.error('Error minting tokens:', error);
       throw new Error(
         `Failed to mint tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Mint new energy tokens directly to a specific account
+   */
+  async mintEnergyTokensToAccount(
+    tokenId: string,
+    toAccountId: string,
+    amount: number,
+    memo: string = 'Renewable energy production',
+  ): Promise<string> {
+    try {
+      console.log(
+        `Minting ${amount} energy tokens to account ${toAccountId}...`,
+      );
+
+      // First mint to treasury
+      const tokenMintTx = new TokenMintTransaction()
+        .setTokenId(tokenId)
+        .setAmount(amount * 100) // Adjust for 2 decimal places
+        .setTransactionMemo(`${memo} - Mint phase`)
+        .setMaxTransactionFee(new Hbar(20))
+        .freezeWith(this.client);
+
+      const tokenMintTxSigned = await tokenMintTx.sign(this.operatorPrivateKey);
+      const tokenMintSubmit = await tokenMintTxSigned.execute(this.client);
+      await tokenMintSubmit.getReceipt(this.client);
+
+      // Then transfer from treasury to target account
+      const transferTx = new TransferTransaction()
+        .addTokenTransfer(tokenId, this.operatorAccountId, -amount * 100) // Negative for treasury
+        .addTokenTransfer(tokenId, toAccountId, amount * 100) // Positive for target account
+        .setTransactionMemo(`${memo} - Transfer phase`)
+        .setMaxTransactionFee(new Hbar(10))
+        .freezeWith(this.client);
+
+      const transferTxSigned = await transferTx.sign(this.operatorPrivateKey);
+      const transferSubmit = await transferTxSigned.execute(this.client);
+      const transferRx = await transferSubmit.getReceipt(this.client);
+
+      const transactionId = transferSubmit.transactionId.toString();
+      console.log(
+        `Successfully minted and transferred ${amount} tokens to ${toAccountId}. Transaction ID: ${transactionId}`,
+      );
+
+      return transactionId;
+    } catch (error) {
+      console.error('Error minting tokens to account:', error);
+      throw new Error(
+        `Failed to mint tokens to account: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Burn energy tokens from a specific account
+   */
+  async burnEnergyTokensFromAccount(
+    tokenId: string,
+    fromAccountId: string,
+    fromAccountPrivateKey: string,
+    amount: number,
+    memo: string = 'Energy consumption',
+  ): Promise<string> {
+    try {
+      console.log(
+        `Burning ${amount} energy tokens from account ${fromAccountId}...`,
+      );
+
+      // First transfer from user account to treasury
+      const transferTx = new TransferTransaction()
+        .addTokenTransfer(tokenId, fromAccountId, -amount * 100) // Negative for user account
+        .addTokenTransfer(tokenId, this.operatorAccountId, amount * 100) // Positive for treasury
+        .setTransactionMemo(`${memo} - Transfer phase`)
+        .setMaxTransactionFee(new Hbar(10))
+        .freezeWith(this.client);
+
+      const userPrivateKey = PrivateKey.fromString(fromAccountPrivateKey);
+      const transferTxSigned = await transferTx.sign(userPrivateKey);
+      const transferSubmit = await transferTxSigned.execute(this.client);
+      await transferSubmit.getReceipt(this.client);
+
+      // Then burn from treasury
+      const tokenBurnTx = new TokenBurnTransaction()
+        .setTokenId(tokenId)
+        .setAmount(amount * 100) // Adjust for 2 decimal places
+        .setTransactionMemo(`${memo} - Burn phase`)
+        .setMaxTransactionFee(new Hbar(20))
+        .freezeWith(this.client);
+
+      const tokenBurnTxSigned = await tokenBurnTx.sign(this.operatorPrivateKey);
+      const tokenBurnSubmit = await tokenBurnTxSigned.execute(this.client);
+      const tokenBurnRx = await tokenBurnSubmit.getReceipt(this.client);
+
+      const transactionId = tokenBurnSubmit.transactionId.toString();
+      console.log(
+        `Successfully transferred and burned ${amount} tokens from ${fromAccountId}. Transaction ID: ${transactionId}`,
+      );
+
+      return transactionId;
+    } catch (error) {
+      console.error('Error burning tokens from account:', error);
+      throw new Error(
+        `Failed to burn tokens from account: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
