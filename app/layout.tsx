@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
-import PrivyProviderWrapper from '@/components/privy-provider';
+import { HashPackProvider } from '@/components/hashpack-provider';
 import ErrorBoundary from '@/components/error-boundary';
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ html {
       </head>
       <body>
         <ErrorBoundary>
-          <PrivyProviderWrapper>{children}</PrivyProviderWrapper>
+          <HashPackProvider>{children}</HashPackProvider>
         </ErrorBoundary>
       </body>
     </html>

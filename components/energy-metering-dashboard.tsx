@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useHashPack } from '@/components/hashpack-provider';
 import { useSmartMeter } from '@/hooks/use-smart-meter';
 import {
   Card,
@@ -61,7 +61,7 @@ interface MeteringStats {
 }
 
 export default function EnergyMeteringDashboard() {
-  const { authenticated, user } = usePrivy();
+  const { isConnected, accountId } = useHashPack();
 
   // Smart meter hook for real-time data
   const {
@@ -85,7 +85,7 @@ export default function EnergyMeteringDashboard() {
   const [success, setSuccess] = useState<string | null>(null);
 
   // Get wallet address for user operations
-  const walletAddress = user?.wallet?.address || '';
+  const walletAddress = accountId || '';
 
   // Convert smart meter data to our local format
   useEffect(() => {
@@ -174,7 +174,7 @@ export default function EnergyMeteringDashboard() {
     }
   };
 
-  if (!authenticated) {
+  if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] bg-[linear-gradient(#4a5568_1px,transparent_1px),linear-gradient(90deg,#4a5568_1px,transparent_1px)] bg-[size:20px_20px] flex items-center justify-center p-6">
         <Card className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_#4a5568] max-w-md w-full">
