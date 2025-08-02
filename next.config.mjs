@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
+  experimental: {
+    typedRoutes: true,
   },
   images: {
     unoptimized: true,
@@ -17,7 +14,21 @@ const nextConfig = {
         crypto: false,
         stream: false,
         buffer: false,
+        fs: false,
+        path: false,
+        os: false,
       };
+      
+      // Ignore critical dependency warnings for HashConnect
+      config.ignoreWarnings = [
+        ...(config.ignoreWarnings || []),
+        {
+          module: /node_modules\/@hashgraph\/hedera-wallet-connect/,
+        },
+        {
+          module: /node_modules\/hashconnect/,
+        },
+      ];
     }
     return config;
   },

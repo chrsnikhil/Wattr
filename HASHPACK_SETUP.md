@@ -1,75 +1,66 @@
 # HashPack Integration Setup
 
-## Getting a WalletConnect Project ID
-
-To use HashPack with your application, you need a WalletConnect project ID:
-
-1. Go to [WalletConnect Cloud](https://cloud.walletconnect.com/)
-2. Sign up or log in
-3. Create a new project
-4. Copy your project ID
-
-## Environment Setup
-
-Create a `.env.local` file in your project root and add:
-
-```
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id_here
-```
-
-Replace `your_project_id_here` with your actual WalletConnect project ID.
-
 ## How it works
 
-The HashPack integration uses HashConnect v3, which is a helper library around the Hedera WalletConnect standard. When you click "CONNECT HASHPACK":
+The HashPack integration now uses the HashPack browser extension directly. When you click "CONNECT HASHPACK":
 
-1. The app opens a pairing modal with a QR code
-2. You can scan the QR code with your HashPack mobile app
-3. Or use the HashPack browser extension if available
-4. Once paired, your real Hedera account ID will be displayed
+1. The app checks if the HashPack extension is installed
+2. If found, it requests account access via `hashpack.requestAccounts()`
+3. The extension will prompt you to approve the connection
+4. Once approved, your real Hedera account ID will be displayed
 5. You can then use this for token operations
 
 ## Current Status
 
-- ✅ HashConnect v3 integration implemented with dynamic imports
-- ✅ Proper event handling for pairing/disconnection
-- ✅ SSR issues resolved with client-side only initialization
-- ⚠️ Need to set up WalletConnect project ID
+- ✅ HashPack extension integration implemented
+- ✅ Automatic connection detection on page load
+- ✅ Proper error handling and fallback to mock
+- ✅ No more SSR issues (no HashConnect library dependency)
+- ⚠️ Need to install HashPack browser extension
 - ⚠️ Need to test with real HashPack wallet
 
-## Testing Steps
+## Installation Steps
 
-1. **Get a WalletConnect Project ID:**
-   - Go to https://cloud.walletconnect.com/
-   - Create a new project
-   - Copy the project ID
+1. **Install HashPack Browser Extension:**
+   - Go to [HashPack Extension](https://hashpack.com/)
+   - Install the browser extension for your browser (Chrome, Firefox, etc.)
+   - Create or import your Hedera account
 
-2. **Set up environment:**
-   - Create `.env.local` file in project root
-   - Add: `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_actual_project_id`
-
-3. **Install HashPack:**
-   - Install HashPack mobile app on your phone
-   - Or install HashPack browser extension
-
-4. **Test the connection:**
+2. **Test the connection:**
    - Start your development server: `npm run dev`
+   - Make sure HashPack extension is enabled in your browser
    - Click "CONNECT HASHPACK" button
-   - Scan the QR code with your HashPack app
+   - Approve the connection in the HashPack extension
    - Your real Hedera account ID should appear
 
 ## Troubleshooting
 
-- If you see a mock account ID (0.0.1234567), it means the real connection failed
+- If you see a mock account ID (0.0.1234567), it means:
+  - HashPack extension is not installed
+  - Extension is not enabled
+  - Connection was denied
 - Check the browser console for detailed logs
-- Make sure you have the HashPack app installed
-- Verify your WalletConnect project ID is correct
-- Ensure you're using the correct network (testnet for development)
+- Make sure you have the HashPack extension installed and enabled
+- Try refreshing the page after installing the extension
+
+## Browser Console Logs
+
+The integration provides detailed console logs:
+- `HashPack: HashPack extension detected` - Extension found
+- `HashPack: Successfully connected with account: 0.0.xxxxx` - Real connection
+- `HashPack: Using mock connection: 0.0.1234567` - Fallback to mock
+- `HashPack: Extension not available` - Extension not found
 
 ## Next Steps
 
 Once the connection is working:
 1. Test token operations with your real account
 2. Switch to mainnet for production
-3. Add proper error handling for failed connections
-4. Implement transaction signing functionality 
+3. Add transaction signing functionality
+4. Implement proper error handling for failed transactions
+
+## Development vs Production
+
+- **Development:** Uses testnet by default
+- **Production:** Should be configured for mainnet
+- **Mock Mode:** Falls back to mock account if extension not available 

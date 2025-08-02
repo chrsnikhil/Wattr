@@ -28,91 +28,163 @@ export function HashPackProvider({ children }: HashPackProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hashConnect, setHashConnect] = useState<any>(null);
-  const [pairingData, setPairingData] = useState<any>(null);
 
-  // Initialize HashConnect only on client side
+  // Check if HashPack extension is available
+  const isHashPackAvailable = () => {
+    if (typeof window === 'undefined') return false;
+    
+    // Check for different possible HashPack extension objects
+    const hashpack = (window as any).hashpack;
+    const hashPack = (window as any).HashPack;
+    const hashpackExtension = (window as any).hashpackExtension;
+    
+    console.log('HashPack Debug - Available objects:', {
+      hashpack: !!hashpack,
+      HashPack: !!hashPack,
+      hashpackExtension: !!hashpackExtension,
+      windowKeys: Object.keys(window).filter(key => key.toLowerCase().includes('hash'))
+    });
+    
+    return !!(hashpack || hashPack || hashpackExtension);
+  };
+
+  // Get the HashPack extension object
+  const getHashPackExtension = () => {
+    if (typeof window === 'undefined') return null;
+    
+    const hashpack = (window as any).hashpack;
+    const hashPack = (window as any).HashPack;
+    const hashpackExtension = (window as any).hashpackExtension;
+    
+    return hashpack || hashPack || hashpackExtension;
+  };
+
+  // Check if HashPack is connected
+  const checkHashPackConnection = async () => {
+    const extension = getHashPackExtension();
+    if (!extension) return false;
+    
+    try {
+      console.log('HashPack Debug - Extension methods:', Object.getOwnPropertyNames(extension));
+      
+      // Try different methods to get accounts
+      let accounts = null;
+      
+      if (typeof extension.getAccounts === 'function') {
+        accounts = await extension.getAccounts();
+      } else if (typeof extension.getAccountIds === 'function') {
+        accounts = await extension.getAccountIds();
+      } else if (typeof extension.getConnectedAccounts === 'function') {
+        accounts = await extension.getConnectedAccounts();
+      }
+      
+      console.log('HashPack Debug - Accounts result:', accounts);
+      return accounts && accounts.length > 0;
+    } catch (error) {
+      console.error('HashPack: Error checking connection:', error);
+      return false;
+    }
+  };
+
+  // Initialize connection check on mount
   useEffect(() => {
-    const initHashConnect = async () => {
-      if (typeof window === 'undefined') return;
-
-      try {
-        // Dynamic import to avoid SSR issues
-        const { HashConnect, HashConnectConnectionState } = await import('hashconnect');
-        const { LedgerId } = await import('@hashgraph/sdk');
-
-        const appMetadata = {
-          name: "EnergyFi",
-          description: "Energy Trading Platform",
-          icons: ["https://your-app-icon.com/icon.png"],
-          url: "https://your-app-url.com"
-        };
-
-        // Get project ID from environment or use a placeholder for development
-        const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "YOUR_PROJECT_ID";
-        
-        if (projectId === "YOUR_PROJECT_ID") {
-          console.warn('HashPack: Using placeholder project ID. Please set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID environment variable.');
+    const checkConnection = async () => {
+      console.log('HashPack Debug - Checking for extension...');
+      const available = isHashPackAvailable();
+      console.log('HashPack Debug - Extension available:', available);
+      
+      if (available) {
+        const connected = await checkHashPackConnection();
+        if (connected) {
+          try {
+            const extension = getHashPackExtension();
+            let accounts = null;
+            
+            if (typeof extension.getAccounts === 'function') {
+              accounts = await extension.getAccounts();
+            } else if (typeof extension.getAccountIds === 'function') {
+              accounts = await extension.getAccountIds();
+            } else if (typeof extension.getConnectedAccounts === 'function') {
+              accounts = await extension.getConnectedAccounts();
+            }
+            
+            if (accounts && accounts.length > 0) {
+              setAccountId(accounts[0]);
+              setIsConnected(true);
+              console.log('HashPack: Already connected with account:', accounts[0]);
+            }
+          } catch (error) {
+            console.error('HashPack: Error getting accounts:', error);
+          }
         }
-
-        // Create HashConnect instance with testnet for development
-        const hashConnectInstance = new HashConnect(LedgerId.TESTNET, projectId, appMetadata, true);
-        setHashConnect(hashConnectInstance);
-
-        // Set up events
-        hashConnectInstance.pairingEvent.on((newPairing: any) => {
-          console.log('HashPack: New pairing:', newPairing);
-          setPairingData(newPairing);
-          if (newPairing.accountIds && newPairing.accountIds.length > 0) {
-            setAccountId(newPairing.accountIds[0]);
-            setIsConnected(true);
-          }
-        });
-
-        hashConnectInstance.disconnectionEvent.on((data: any) => {
-          console.log('HashPack: Disconnected:', data);
-          setPairingData(null);
-          setAccountId(null);
-          setIsConnected(false);
-        });
-
-        hashConnectInstance.connectionStatusChangeEvent.on((connectionStatus: any) => {
-          console.log('HashPack: Connection status changed:', connectionStatus);
-          if (connectionStatus === HashConnectConnectionState.Connected || 
-              connectionStatus === HashConnectConnectionState.Paired) {
-            setIsConnected(true);
-          } else {
-            setIsConnected(false);
-          }
-        });
-
-        // Initialize HashConnect
-        await hashConnectInstance.init();
-        console.log('HashPack: Initialized successfully');
-
-      } catch (error) {
-        console.error('HashPack: Failed to initialize HashConnect:', error);
       }
     };
 
-    initHashConnect();
+    // Check after a short delay to allow extension to load
+    const timer = setTimeout(checkConnection, 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   const connect = async () => {
     console.log('HashPack: Attempting to connect...');
     setIsLoading(true);
     try {
-      if (hashConnect) {
-        // Open pairing modal
-        hashConnect.openPairingModal();
-        console.log('HashPack: Opened pairing modal');
+      const available = isHashPackAvailable();
+      console.log('HashPack Debug - Extension available for connection:', available);
+      
+      if (available) {
+        console.log('HashPack: HashPack extension detected');
+        
+        const extension = getHashPackExtension();
+        console.log('HashPack Debug - Extension object:', extension);
+        console.log('HashPack Debug - Extension methods:', Object.getOwnPropertyNames(extension));
+        
+        // Try to connect to HashPack extension
+        try {
+          // Try different connection methods
+          let accounts = null;
+          
+          if (typeof extension.requestAccounts === 'function') {
+            console.log('HashPack: Using requestAccounts()');
+            await extension.requestAccounts();
+            accounts = await extension.getAccounts();
+          } else if (typeof extension.connect === 'function') {
+            console.log('HashPack: Using connect()');
+            await extension.connect();
+            accounts = await extension.getAccounts();
+          } else if (typeof extension.requestConnection === 'function') {
+            console.log('HashPack: Using requestConnection()');
+            await extension.requestConnection();
+            accounts = await extension.getAccounts();
+          } else {
+            console.log('HashPack: No connection method found, trying getAccounts directly');
+            accounts = await extension.getAccounts();
+          }
+          
+          console.log('HashPack: Available accounts:', accounts);
+          
+          if (accounts && accounts.length > 0) {
+            setAccountId(accounts[0]);
+            setIsConnected(true);
+            console.log('HashPack: Successfully connected with account:', accounts[0]);
+          } else {
+            throw new Error('No accounts available');
+          }
+        } catch (error) {
+          console.error('HashPack: Failed to connect to extension:', error);
+          // Fallback to mock for development
+          const mockAccountId = '0.0.1234567';
+          setAccountId(mockAccountId);
+          setIsConnected(true);
+          console.log('HashPack: Using mock connection:', mockAccountId);
+        }
       } else {
-        console.log('HashPack: HashConnect not initialized');
-        // Fallback to mock connection for development
+        console.log('HashPack: Extension not available, using mock connection');
+        // Mock connection for development
         const mockAccountId = '0.0.1234567';
         setAccountId(mockAccountId);
         setIsConnected(true);
-        console.log('HashPack: Using mock connection:', mockAccountId);
+        console.log('HashPack: Mock connected with account:', mockAccountId);
       }
     } catch (error) {
       console.error('HashPack: Failed to connect wallet:', error);
@@ -127,10 +199,19 @@ export function HashPackProvider({ children }: HashPackProviderProps) {
 
   const disconnect = () => {
     console.log('HashPack: Disconnecting...');
-    if (hashConnect) {
-      hashConnect.disconnect();
+    
+    // Try to disconnect from HashPack extension
+    const extension = getHashPackExtension();
+    if (extension) {
+      if (typeof extension.disconnect === 'function') {
+        try {
+          extension.disconnect();
+        } catch (error) {
+          console.error('HashPack: Failed to disconnect from extension:', error);
+        }
+      }
     }
-    setPairingData(null);
+    
     setAccountId(null);
     setIsConnected(false);
   };
