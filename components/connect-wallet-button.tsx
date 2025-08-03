@@ -6,7 +6,8 @@ import { useHashPack } from './hashpack-provider';
 import { Wallet, LogOut } from 'lucide-react';
 
 export default function ConnectWalletButton() {
-  const { isConnected, accountId, connect, disconnect, isLoading } = useHashPack();
+  const { isConnected, accountId, connect, disconnect, isLoading, error } =
+    useHashPack();
 
   const handleConnect = async () => {
     try {
@@ -30,6 +31,26 @@ export default function ConnectWalletButton() {
         <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
         CONNECTING...
       </Button>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center space-y-2">
+        <Button
+          onClick={handleConnect}
+          variant="outline"
+          className="border-2 border-red-500 shadow-[2px_2px_0px_0px_#ef4444] hover:shadow-[1px_1px_0px_0px_#ef4444] transition-all bg-red-50 text-red-700 hover:bg-red-100"
+        >
+          <Wallet className="w-4 h-4 mr-2" />
+          RETRY CONNECTION
+        </Button>
+        <div className="text-xs text-red-600 max-w-xs text-center">
+          {error.includes('WalletConnect Project ID')
+            ? 'Setup required: Please configure WalletConnect Project ID'
+            : 'Connection failed - click to retry'}
+        </div>
+      </div>
     );
   }
 
@@ -64,4 +85,4 @@ export default function ConnectWalletButton() {
       CONNECT HASHPACK
     </Button>
   );
-} 
+}

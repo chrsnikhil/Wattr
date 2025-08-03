@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useHashPack } from './hashpack-provider';
 
 export default function HashPackTest() {
-  const { isConnected, accountId, connect, disconnect, isLoading } = useHashPack();
+  const { isConnected, accountId, connect, disconnect, isLoading, error } =
+    useHashPack();
 
   return (
     <div className="p-4 border-2 border-black bg-white shadow-[4px_4px_0px_0px_#4a5568]">
@@ -14,6 +15,9 @@ export default function HashPackTest() {
         <div>isConnected: {isConnected ? 'true' : 'false'}</div>
         <div>accountId: {accountId || 'null'}</div>
         <div>isLoading: {isLoading ? 'true' : 'false'}</div>
+        <div className={`${error ? 'text-red-600' : 'text-gray-600'}`}>
+          error: {error || 'null'}
+        </div>
       </div>
       <div className="mt-4 space-x-2">
         <Button
@@ -31,6 +35,25 @@ export default function HashPackTest() {
           Disconnect
         </Button>
       </div>
+
+      {error && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+          <h4 className="font-semibold text-red-800">Setup Required:</h4>
+          <p className="text-sm text-red-700 mt-1">
+            {error.includes('WalletConnect Project ID') ? (
+              <>
+                Please set up your WalletConnect Project ID. See{' '}
+                <a href="/SETUP_HASHPACK.md" className="underline">
+                  SETUP_HASHPACK.md
+                </a>{' '}
+                for instructions.
+              </>
+            ) : (
+              'Connection failed. Check console for details.'
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
-} 
+}
