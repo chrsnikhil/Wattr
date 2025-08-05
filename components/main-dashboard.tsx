@@ -10,6 +10,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { UserRoleManager } from '@/lib/user-roles';
 import EnergyMeteringDashboard from '@/components/energy-metering-dashboard';
 import EnergyTradingDashboard from '@/components/energy-trading-dashboard';
+import ProsumerDashboard from '@/components/prosumer-dashboard';
 import RoleSelection from '@/components/role-selection';
 import {
   Activity,
@@ -264,7 +265,7 @@ export default function MainDashboard() {
               className="font-black font-mono data-[state=active]:bg-[#10b981] data-[state=active]:text-white data-[state=active]:border-2 data-[state=active]:border-black"
             >
               <Activity className="h-4 w-4 mr-2" />
-              ENERGY METERING
+              {userRole === 'prosumer' ? 'PROSUMER HUB' : 'ENERGY METERING'}
             </TabsTrigger>
 
             <TabsTrigger
@@ -300,7 +301,11 @@ export default function MainDashboard() {
           )}
 
           <TabsContent value="metering" className="space-y-6">
-            <EnergyMeteringDashboard />
+            {userRole === 'prosumer' ? (
+              <ProsumerDashboard />
+            ) : (
+              <EnergyMeteringDashboard />
+            )}
           </TabsContent>
 
           <TabsContent value="trading" className="space-y-6">
