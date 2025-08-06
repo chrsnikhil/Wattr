@@ -1,4 +1,12 @@
 import { getRedisClient } from './redis-client';
+import {
+  Client,
+  PrivateKey,
+  AccountId,
+  TransferTransaction,
+  TokenId,
+  Hbar,
+} from '@hashgraph/sdk';
 
 // Types for energy trading
 export interface EnergyListing {
@@ -64,11 +72,40 @@ const USER_LISTINGS_PREFIX = 'user_listings:';
 const USER_TRADES_PREFIX = 'user_trades:';
 const STATS_KEY = 'trading_stats';
 
+// Singleton instance of the shared WEC token
+const SHARED_WEC_TOKEN = {
+  tokenId: process.env.WEC_TOKEN_ID || '0.0.4851562', // Default testnet token ID
+  name: 'WattrEnergyCredit',
+  symbol: 'WEC',
+  decimals: 2,
+  description: 'Decentralized energy credits for renewable energy trading',
+} as const;
+
 /**
  * Redis-based Energy Trading Service
  */
 export class RedisEnergyTradingService {
   private redis = getRedisClient();
+  private client: Client;
+  private operatorPrivateKey: PrivateKey;
+  private operatorAccountId: AccountId;
+
+  constructor() {
+    // Initialize Hedera client
+    this.client = Client.forTestnet();
+
+    // Get credentials from environment variables
+    const privateKeyString = process.env.HEDERA_PRIVATE_KEY;
+    const accountIdString = process.env.HEDERA_ACCOUNT_ID;
+
+    if (!privateKeyString || !accountIdString) {
+      throw new Error('Hedera credentials required for energy trading');
+    }
+
+    this.operatorPrivateKey = PrivateKey.fromStringDer(privateKeyString);
+    this.operatorAccountId = AccountId.fromString(accountIdString);
+    this.client.setOperator(this.operatorAccountId, this.operatorPrivateKey);
+  }
 
   /**
    * Create a new energy listing
@@ -190,61 +227,136 @@ export class RedisEnergyTradingService {
     buyerId: string,
     buyerPrivateKey: string,
   ): Promise<EnergyTrade> {
-    // Get listing
-    const listingData = await this.redis.get(`${LISTING_PREFIX}${listingId}`);
-    if (!listingData) {
-      throw new Error('Listing not found');
+    try {
+      // Get listing
+      const listingData = await this.redis.get(`${LISTING_PREFIX}${listingId}`);
+      if (!listingData) {
+        throw new Error('Listing not found');
+      }
+
+      const listing: EnergyListing = JSON.parse(listingData);
+
+      if (!listing.isActive) {
+        throw new Error('Listing is no longer active');
+      }
+
+      // Check if listing has expired
+      if (listing.expiresAt && new Date(listing.expiresAt) < new Date()) {
+        listing.isActive = false;
+        await this.redis.set(
+          `${LISTING_PREFIX}${listingId}`,
+          JSON.stringify(listing),
+        );
+        await this.removeListingFromActive(listingId);
+        throw new Error('Energy listing has expired');
+      }
+
+      // Create trade record
+      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const now = new Date();
+
+      const trade: EnergyTrade = {
+        id: tradeId,
+        listingId,
+        buyerId,
+        sellerId: listing.sellerId,
+        buyerName: `Buyer ${buyerId.slice(-6)}`,
+        sellerName: listing.sellerName,
+        energyAmount: listing.energyAmount,
+        pricePerKwh: listing.pricePerKwh,
+        totalPrice: listing.totalPrice,
+        energySource: listing.energySource,
+        transactionId: '', // Will be set after transaction
+        status: 'pending',
+        timestamp: now.toISOString(),
+        location: listing.location,
+      };
+
+      // Execute the real token transfer on Hedera
+      console.log(
+        `🔄 Executing real energy trade: ${listing.energyAmount} WEC from ${listing.sellerId} to ${buyerId}`,
+      );
+
+      const transferTransaction = new TransferTransaction()
+        .addTokenTransfer(
+          TokenId.fromString(SHARED_WEC_TOKEN.tokenId),
+          AccountId.fromString(listing.sellerId),
+          -listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Negative for sender
+        )
+        .addTokenTransfer(
+          TokenId.fromString(SHARED_WEC_TOKEN.tokenId),
+          AccountId.fromString(buyerId),
+          listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Positive for receiver
+        )
+        .setTransactionMemo(
+          `Energy trade: ${listing.energyAmount} kWh from ${listing.energySource} source`,
+        )
+        .setMaxTransactionFee(new Hbar(2))
+        .freezeWith(this.client);
+
+      // Sign with operator key (in production, would need proper multi-sig)
+      let transferSigned = await transferTransaction.sign(
+        this.operatorPrivateKey,
+      );
+
+      // If buyer provided private key, sign with that too
+      if (buyerPrivateKey) {
+        const buyerKey = PrivateKey.fromStringDer(buyerPrivateKey);
+        transferSigned = await transferSigned.sign(buyerKey);
+      }
+
+      const transferSubmit = await transferSigned.execute(this.client);
+      const transferReceipt = await transferSubmit.getReceipt(this.client);
+
+      if (transferReceipt.status.toString() === 'SUCCESS') {
+        trade.transactionId = transferSubmit.transactionId.toString();
+        trade.status = 'completed';
+        trade.completedAt = now.toISOString();
+
+        console.log(
+          `✅ Energy trade completed successfully! Transaction ID: ${trade.transactionId}`,
+        );
+      } else {
+        trade.status = 'failed';
+        console.error(
+          '❌ Energy trade failed:',
+          transferReceipt.status.toString(),
+        );
+        throw new Error(
+          `Transaction failed: ${transferReceipt.status.toString()}`,
+        );
+      }
+
+      // Save completed trade
+      await this.redis.set(`${TRADE_PREFIX}${tradeId}`, JSON.stringify(trade));
+
+      // Add to all trades
+      await this.redis.sadd(ALL_TRADES_SET, tradeId);
+
+      // Add to buyer's trades
+      await this.redis.sadd(`${USER_TRADES_PREFIX}${buyerId}`, tradeId);
+
+      // Add to seller's trades
+      await this.redis.sadd(
+        `${USER_TRADES_PREFIX}${listing.sellerId}`,
+        tradeId,
+      );
+
+      // Mark listing as inactive
+      listing.isActive = false;
+      await this.redis.set(
+        `${LISTING_PREFIX}${listingId}`,
+        JSON.stringify(listing),
+      );
+      await this.removeListingFromActive(listingId);
+
+      return trade;
+    } catch (error) {
+      console.error('❌ Error executing energy trade:', error);
+      throw new Error(
+        `Failed to execute trade: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
-
-    const listing: EnergyListing = JSON.parse(listingData);
-
-    if (!listing.isActive) {
-      throw new Error('Listing is no longer active');
-    }
-
-    // Create trade
-    const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date();
-
-    const trade: EnergyTrade = {
-      id: tradeId,
-      listingId,
-      buyerId,
-      sellerId: listing.sellerId,
-      buyerName: `Buyer ${buyerId.slice(-6)}`,
-      sellerName: listing.sellerName,
-      energyAmount: listing.energyAmount,
-      pricePerKwh: listing.pricePerKwh,
-      totalPrice: listing.totalPrice,
-      energySource: listing.energySource,
-      transactionId: `mock_tx_${Date.now()}`, // This would be real Hedera transaction ID
-      status: 'completed',
-      timestamp: now.toISOString(),
-      completedAt: now.toISOString(),
-      location: listing.location,
-    };
-
-    // Save trade
-    await this.redis.set(`${TRADE_PREFIX}${tradeId}`, JSON.stringify(trade));
-
-    // Add to all trades
-    await this.redis.sadd(ALL_TRADES_SET, tradeId);
-
-    // Add to buyer's trades
-    await this.redis.sadd(`${USER_TRADES_PREFIX}${buyerId}`, tradeId);
-
-    // Add to seller's trades
-    await this.redis.sadd(`${USER_TRADES_PREFIX}${listing.sellerId}`, tradeId);
-
-    // Mark listing as inactive
-    listing.isActive = false;
-    await this.redis.set(
-      `${LISTING_PREFIX}${listingId}`,
-      JSON.stringify(listing),
-    );
-    await this.removeListingFromActive(listingId);
-
-    return trade;
   }
 
   /**

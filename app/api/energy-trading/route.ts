@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
     const { action, ...params } = body;
 
     if (MOCK_MODE && !USE_REDIS) {
-      console.log('Running in mock mode - simulating trading operations');
+      console.log('🚨 Running in mock mode - simulating trading operations');
 
       switch (action) {
         case 'create-listing':

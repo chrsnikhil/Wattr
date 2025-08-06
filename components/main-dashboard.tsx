@@ -10,6 +10,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { UserRoleManager } from '@/lib/user-roles';
 import EnergyMeteringDashboard from '@/components/energy-metering-dashboard';
 import EnergyTradingDashboard from '@/components/energy-trading-dashboard';
+import EnergyMarketplace from '@/components/energy-marketplace';
 import ProsumerDashboard from '@/components/prosumer-dashboard';
 import RoleSelection from '@/components/role-selection';
 import {
@@ -310,7 +311,7 @@ export default function MainDashboard() {
 
           <TabsContent value="trading" className="space-y-6">
             {canAccessMarketplace ? (
-              <EnergyTradingDashboard />
+              <EnergyMarketplace />
             ) : (
               <Card className="bg-white border-4 border-red-500 shadow-[8px_8px_0px_0px_#4a5568]">
                 <CardContent className="p-8 text-center">
@@ -319,7 +320,7 @@ export default function MainDashboard() {
                     ACCESS RESTRICTED
                   </h2>
                   <p className="text-lg font-bold font-mono text-[#4a5568] mb-6">
-                    Energy trading requires prosumer role access.
+                    Energy marketplace requires prosumer role access.
                   </p>
                   <Button
                     onClick={() => setShowRoleSettings(true)}

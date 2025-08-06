@@ -178,32 +178,75 @@ export default function ProsumerDashboard() {
       return;
     }
 
+    if (!authenticated || !walletAddress) {
+      setError('Please connect your wallet to create a listing');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Mock API call to create listing
-      const newListing: EnergyListing = {
-        id: `listing-${Date.now()}`,
-        amount,
-        pricePerKwh,
-        totalPrice: amount * pricePerKwh,
-        status: 'active',
-        listedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      };
-
-      setListings(prev => [newListing, ...prev]);
-      setListingAmount('');
-      setListingPrice('');
-      setShowListingForm(false);
-      setSuccess(
-        `Successfully listed ${amount} kWh for $${(amount * pricePerKwh).toFixed(2)}`,
+      // Get user's Hedera account mapping
+      const walletResponse = await fetch(
+        `/api/wallet-tokens?walletAddress=${encodeURIComponent(walletAddress)}&action=check-mapping`,
       );
+      const walletData = await walletResponse.json();
 
-      // Refresh token balance after listing creation
-      fetchTokenInfo();
+      if (!walletData.success || !walletData.accountId) {
+        setError(
+          'Wallet not mapped to Hedera account. Please complete setup first.',
+        );
+        return;
+      }
 
-      setTimeout(() => setSuccess(null), 5000);
+      // Create real listing via API
+      const listingResponse = await fetch('/api/energy-trading', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create-listing',
+          sellerId: walletData.accountId,
+          sellerName: userProfile?.displayName || 'Anonymous Seller',
+          energyAmount: amount,
+          pricePerKwh: pricePerKwh,
+          energySource: 'solar', // Default to solar, could be made configurable
+          location: 'Unknown Location', // Default location since userProfile doesn't have location
+          expiresInHours: 24,
+        }),
+      });
+
+      const listingData = await listingResponse.json();
+
+      if (listingData.success) {
+        setListingAmount('');
+        setListingPrice('');
+        setShowListingForm(false);
+        setSuccess(
+          `Successfully listed ${amount} kWh for ${(amount * pricePerKwh).toFixed(2)} WEC. Your listing is now available in the marketplace!`,
+        );
+
+        // Refresh token balance after listing creation
+        fetchTokenInfo();
+
+        // Refresh local listings display (could be enhanced to fetch real user listings)
+        const newListing: EnergyListing = {
+          id: listingData.listing?.id || `listing-${Date.now()}`,
+          amount,
+          pricePerKwh,
+          totalPrice: amount * pricePerKwh,
+          status: 'active',
+          listedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        };
+        setListings(prev => [newListing, ...prev]);
+
+        setTimeout(() => setSuccess(null), 7000);
+      } else {
+        setError(listingData.error || 'Failed to create listing');
+      }
     } catch (err) {
+      console.error('Error creating listing:', err);
       setError('Failed to create listing. Please try again.');
     } finally {
       setLoading(false);
