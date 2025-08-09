@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
         const trade = await tradingService.executeEnergyTrade(
           params.listingId,
           params.buyerId,
-          params.buyerPrivateKey,
+          // No longer require buyer private key for escrow model
         );
 
         return NextResponse.json({

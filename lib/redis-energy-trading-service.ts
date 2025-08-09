@@ -220,12 +220,12 @@ export class RedisEnergyTradingService {
   }
 
   /**
-   * Execute an energy trade
+   * Execute an energy trade using operator escrow model
    */
   async executeEnergyTrade(
     listingId: string,
     buyerId: string,
-    buyerPrivateKey: string,
+    buyerPrivateKey?: string, // Optional - not used in escrow model
   ): Promise<EnergyTrade> {
     try {
       // Get listing
@@ -273,57 +273,65 @@ export class RedisEnergyTradingService {
       };
 
       // Execute the real token transfer on Hedera
+      // Using simplified escrow model - operator transfers energy credits to buyer
       console.log(
-        `🔄 Executing real energy trade: ${listing.energyAmount} WEC from ${listing.sellerId} to ${buyerId}`,
+        `🔄 Executing energy purchase: ${listing.energyAmount} WEC to ${buyerId}`,
+        `\n   📍 Seller: ${listing.sellerId}`,
+        `\n   📍 Buyer: ${buyerId}`,
+        `\n   💰 Price: ${listing.totalPrice} WEC`,
       );
 
-      const transferTransaction = new TransferTransaction()
+      // Transfer energy credits from operator to buyer (representing energy purchase)
+      const energyTransferTransaction = new TransferTransaction()
         .addTokenTransfer(
           TokenId.fromString(SHARED_WEC_TOKEN.tokenId),
-          AccountId.fromString(listing.sellerId),
-          -listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Negative for sender
+          this.operatorAccountId,
+          -listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Operator gives energy credits
         )
         .addTokenTransfer(
           TokenId.fromString(SHARED_WEC_TOKEN.tokenId),
           AccountId.fromString(buyerId),
-          listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Positive for receiver
+          listing.energyAmount * Math.pow(10, SHARED_WEC_TOKEN.decimals), // Buyer receives energy credits
         )
         .setTransactionMemo(
-          `Energy trade: ${listing.energyAmount} kWh from ${listing.energySource} source`,
+          `Energy purchase: ${listing.energyAmount} kWh ${listing.energySource} energy`,
         )
         .setMaxTransactionFee(new Hbar(2))
         .freezeWith(this.client);
 
-      // Sign with operator key (in production, would need proper multi-sig)
-      let transferSigned = await transferTransaction.sign(
+      // Only operator signs this transaction (escrow model)
+      const energySigned = await energyTransferTransaction.sign(
         this.operatorPrivateKey,
       );
+      const energySubmit = await energySigned.execute(this.client);
+      const energyReceipt = await energySubmit.getReceipt(this.client);
 
-      // If buyer provided private key, sign with that too
-      if (buyerPrivateKey) {
-        const buyerKey = PrivateKey.fromStringDer(buyerPrivateKey);
-        transferSigned = await transferSigned.sign(buyerKey);
-      }
-
-      const transferSubmit = await transferSigned.execute(this.client);
-      const transferReceipt = await transferSubmit.getReceipt(this.client);
-
-      if (transferReceipt.status.toString() === 'SUCCESS') {
-        trade.transactionId = transferSubmit.transactionId.toString();
+      if (energyReceipt.status.toString() === 'SUCCESS') {
+        trade.transactionId = energySubmit.transactionId.toString();
         trade.status = 'completed';
         trade.completedAt = now.toISOString();
 
         console.log(
-          `✅ Energy trade completed successfully! Transaction ID: ${trade.transactionId}`,
+          `✅ Energy purchase completed successfully!`,
+          `\n   🔗 Transaction ID: ${trade.transactionId}`,
+          `\n   ⚡ Energy transferred: ${listing.energyAmount} kWh`,
+          `\n   💰 Value: ${listing.totalPrice} WEC`,
+          `\n   🌱 Source: ${listing.energySource}`,
         );
+
+        // In this simplified MVP, we're focusing on energy credit transfer
+        // In a real implementation, you might also handle:
+        // 1. Payment processing (buyer pays seller)
+        // 2. Seller compensation from energy pool
+        // 3. Integration with energy grid for actual delivery
       } else {
         trade.status = 'failed';
         console.error(
-          '❌ Energy trade failed:',
-          transferReceipt.status.toString(),
+          '❌ Energy transfer failed:',
+          energyReceipt.status.toString(),
         );
         throw new Error(
-          `Transaction failed: ${transferReceipt.status.toString()}`,
+          `Energy transfer failed: ${energyReceipt.status.toString()}`,
         );
       }
 

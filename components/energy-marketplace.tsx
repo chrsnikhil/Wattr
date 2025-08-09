@@ -203,7 +203,6 @@ export default function EnergyMarketplace() {
           action: 'execute-trade',
           listingId: listing.id,
           buyerId: walletData.accountId,
-          buyerPrivateKey: walletData.privateKey, // In production, this should be handled securely
           buyerName: userProfile?.displayName || 'Anonymous Buyer',
         }),
       });
